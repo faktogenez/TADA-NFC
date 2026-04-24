@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Tada</string>
+    <string name="hold_card">Приложите карту к задней панели на 5 секунд</string>
+    <string name="balance_label">Баланс</string>
+    <string name="card_number_label">Номер карты</string>
+    <string name="nfc_disabled">NFC выключен. Пожалуйста, включите его.</string>
+    <string name="unknown_card">Карта не поддерживается</string>
+    <string name="video_instruction">Приложите карту</string>
+</resources>

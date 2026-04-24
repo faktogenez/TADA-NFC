@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">T-money 余额</string>
+    <string name="hold_card">请将卡片贴在背面 5 秒钟</string>
+    <string name="balance_label">余额</string>
+    <string name="card_number_label">卡号</string>
+    <string name="nfc_disabled">NFC 已禁用。请开启它。</string>
+    <string name="unknown_card">不支持的卡片</string>
+</resources>

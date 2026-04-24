@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Tada</string>
+    <string name="hold_card">Hold card to the back for 5 seconds</string>
+    <string name="balance_label">Balance</string>
+    <string name="card_number_label">Card Number</string>
+    <string name="nfc_disabled">NFC is disabled. Please enable it.</string>
+    <string name="unknown_card">Unsupported card</string>
+    <string name="read_error">Reading error, please try again</string>
+    <string name="tada_logo_text">TADA</string>
+    <string name="close_content_description">Close</string>
+    <string name="settings_content_description">Settings</string>
+    <string name="video_instruction">Tap your card</string>
+</resources>
