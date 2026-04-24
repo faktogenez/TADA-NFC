@@ -1,6 +1,7 @@
 package com.example.tada_nfc
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,7 +28,7 @@ import com.example.tada_nfc.ui.theme.TADA_NFCTheme
 
 /**
  * Основной компонент карточки баланса.
- * Дизайн адаптирован под скриншот: синяя шапка и светлое тело.
+ * Дизайн адаптирован под скриншот: цветная шапка (зависит от типа) и светлое тело.
  */
 @Composable
 fun TadaCard(
@@ -38,6 +39,8 @@ fun TadaCard(
     onCloseClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {}
 ) {
+    val currentHeaderColor = CardConfig.getHeaderColor(userType)
+
     Card(
         shape = RoundedCornerShape(CardConfig.cardCornerRadius),
         modifier = modifier
@@ -51,7 +54,7 @@ fun TadaCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(0.22f)
-                    .background(CardConfig.headerColor)
+                    .background(currentHeaderColor)
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -65,7 +68,7 @@ fun TadaCard(
                         Box(contentAlignment = Alignment.Center) {
                             Text(
                                 text = "T",
-                                color = CardConfig.headerColor,
+                                color = currentHeaderColor,
                                 fontWeight = FontWeight.Black,
                                 fontSize = (CardConfig.logoSize.value * 0.6).sp
                             )
@@ -106,31 +109,46 @@ fun TadaCard(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // 1. Категория с иконкой
+                    // 1. Категория с иконкой и инфо о возрасте
                     val displayType = CardConfig.translate(userType.uppercase())
                     val finalLabel = if (userType.uppercase() == "HIPASS") "$displayType+" else displayType
                     val categoryIcon = getCategoryIcon(userType.uppercase())
                     
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(top = 4.dp)
                     ) {
-                        if (categoryIcon != null) {
-                            Icon(
-                                imageVector = categoryIcon,
-                                contentDescription = null,
-                                tint = CardConfig.userTypeColor,
-                                modifier = Modifier.size(24.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            if (categoryIcon != null) {
+                                Icon(
+                                    imageVector = categoryIcon,
+                                    contentDescription = null,
+                                    tint = currentHeaderColor.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                            Text(
+                                text = finalLabel,
+                                color = currentHeaderColor.copy(alpha = 0.8f),
+                                fontSize = CardConfig.userTypeSize,
+                                fontWeight = FontWeight.ExtraBold
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
                         }
-                        Text(
-                            text = finalLabel,
-                            color = CardConfig.userTypeColor,
-                            fontSize = CardConfig.userTypeSize,
-                            fontWeight = FontWeight.ExtraBold
-                        )
+                        
+                        // Дополнительная информация о возрасте для льготных категорий
+                        if (userType.uppercase() == "CHILD" || userType.uppercase() == "YOUTH") {
+                            val ageKey = if (userType.uppercase() == "CHILD") "age_child" else "age_youth"
+                            Text(
+                                text = CardConfig.translate(ageKey),
+                                color = CardConfig.secondaryTextColor,
+                                fontSize = CardConfig.ageInfoSize,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
 
                     // 2. БАЛАНС
@@ -178,7 +196,7 @@ fun TadaCard(
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = "Settings",
-                        tint = CardConfig.headerColor,
+                        tint = currentHeaderColor,
                         modifier = Modifier.size(CardConfig.settingsIconSize)
                     )
                 }
