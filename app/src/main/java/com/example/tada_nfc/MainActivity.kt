@@ -32,6 +32,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -67,18 +69,17 @@ data class CardData(val balance: String, val number: String, val userType: Strin
 
 object TmoneyReader {
     private const val TAG = "TmoneyReader"
-    private val decimalFormat = DecimalFormat("#,###", DecimalFormatSymbols(Locale.US).apply { groupingSeparator = ',' })
+    private val decimalFormat = java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale.US).apply { groupingSeparator = ',' })
 
-    fun read(tag: Tag): CardData? {
-        val techList = tag.techList.toList()
-        if (techList.contains("android.nfc.tech.IsoDep")) {
-            return readIsoDep(IsoDep.get(tag))
-        }
-        return null
-    }
+    // APDU команды
+    private val CMD_BALANCE_TMONEY = byteArrayOf(0x90.toByte(), 0x4C, 0x00, 0x00, 0x04)
+    private val CMD_BALANCE_HIPASS = byteArrayOf(0x80.toByte(), 0x5C, 0x00, 0x00, 0x04)
+    private val CMD_CARDINFO_HIPASS = byteArrayOf(0x00, 0xB0.toByte(), 0x88.toByte(), 0x00, 0x3C.toByte())
 
-    private fun readIsoDep(iso: IsoDep?): CardData? {
-        if (iso == null) return null
+    fun read(tag: android.nfc.Tag): CardData? {
+        android.util.Log.i(TAG, ">>> SCAN STARTED <<<")
+        val iso = android.nfc.tech.IsoDep.get(tag) ?: return null
+
         try {
             iso.connect()
             iso.timeout = 2000
@@ -95,9 +96,9 @@ object TmoneyReader {
 
             for (pair in aids) {
                 val aid = pair.first
-                val cmd = byteArrayOf(0x00.toByte(), 0xA4.toByte(), 0x04.toByte(), 0x00.toByte(), aid.size.toByte()) + aid + byteArrayOf(0x00.toByte())
-                val res = iso.transceive(cmd)
-                if (isSuccess(res)) {
+                val selectCmd = byteArrayOf(0x00, 0xA4.toByte(), 0x04, 0x00, aid.size.toByte()) + aid + byteArrayOf(0x00)
+                val res = iso.transceive(selectCmd)
+                if (isSuccessStatus(res)) {
                     selectRes = res
                     cardBrand = pair.second
                     break
@@ -106,44 +107,9 @@ object TmoneyReader {
 
             if (selectRes == null) return null
 
-            // Balance
-            val balanceCmd = if (cardBrand == "HIPASS") hexToBytes("905C000004") else hexToBytes("904C000004")
-            val bRes = iso.transceive(balanceCmd)
-            if (!isSuccess(bRes) || bRes.size < 4) return null
-            val balanceInt = (bRes[0].toInt() and 0xFF shl 24) or (bRes[1].toInt() and 0xFF shl 16) or (bRes[2].toInt() and 0xFF shl 8) or (bRes[3].toInt() and 0xFF)
-            val balanceStr = decimalFormat.format(balanceInt)
-
-            var userType = ""
-            var cardNumber = ""
-
-            if (cardBrand == "HIPASS") {
-                userType = "HIPASS"
-                var rawNum: ByteArray? = null
-                
-                // Try from select response
-                val idx = findPattern(selectRes, byteArrayOf(0x00.toByte(), 0x20.toByte()))
-                if (idx != -1 && selectRes.size >= idx + 8) {
-                    rawNum = selectRes.sliceArray(idx until idx + 8)
-                } else {
-                    // Try SFI 0x88
-                    val sfiRes = iso.transceive(hexToBytes("00B088000C"))
-                    if (isSuccess(sfiRes)) {
-                        val idxSfi = findPattern(sfiRes, byteArrayOf(0x00.toByte(), 0x20.toByte()))
-                        if (idxSfi != -1 && sfiRes.size >= idxSfi + 8) {
-                            rawNum = sfiRes.sliceArray(idxSfi until idxSfi + 8)
-                        }
-                    }
-                }
-                
-                if (rawNum != null) {
-                    val h = toHex(rawNum) // Already 16 digits
-                    cardNumber = "${h.substring(0, 4)} ${h.substring(4, 8)} ${h.substring(8, 12)} ${h.substring(12, 16)}"
-                } else {
-                    cardNumber = "0020 **** **** ****"
-                }
-            } else {
-                // User Type
-                userType = if (selectRes.size > 29) {
+            // 1. Определение типа пользователя (ВЕРНУЛ ВИЗУАЛ)
+            val userType = if (cardBrand == "HIPASS") "HIPASS" else {
+                if (selectRes!!.size > 29) {
                     when (selectRes[29].toInt() and 0xFF) {
                         0x01 -> "ADULT"
                         0x02 -> "CHILD"
@@ -151,58 +117,80 @@ object TmoneyReader {
                         else -> "UNKNOWN"
                     }
                 } else "UNKNOWN"
+            }
 
-                // Card Number
-                var rawBcd: ByteArray? = null
-                val tagIdx = findPattern(selectRes, byteArrayOf(0x12.toByte(), 0x08.toByte()))
-                if (tagIdx != -1 && selectRes.size >= tagIdx + 10) {
-                    rawBcd = selectRes.sliceArray(tagIdx + 2 until tagIdx + 10)
-                } else if (selectRes.size >= 16) {
-                    rawBcd = selectRes.sliceArray(8 until 16)
+            // 2. Считывание баланса
+            val balanceCmd = if (cardBrand == "HIPASS") CMD_BALANCE_HIPASS else CMD_BALANCE_TMONEY
+            val bRes = iso.transceive(balanceCmd)
+
+            val balanceInt = if (isSuccessStatus(bRes) && bRes.size >= 4) {
+                (bRes[3].toInt() and 0xFF) or
+                        ((bRes[0].toInt() and 0xFF) shl 24) or
+                        ((bRes[1].toInt() and 0xFF) shl 16) or
+                        ((bRes[2].toInt() and 0xFF) shl 8)
+            } else 0
+            val balanceStr = decimalFormat.format(balanceInt)
+
+            // 3. Считывание номера карты
+            var fullNumber: String? = null
+
+            if (cardBrand == "HIPASS") {
+                val infoRes = iso.transceive(CMD_CARDINFO_HIPASS)
+                if (isSuccessStatus(infoRes) && infoRes.size >= 20) {
+                    fullNumber = formatBcdCardNumber(infoRes, 12, 8)
                 }
-
-                // T-money fallback
-                if (cardBrand == "TMONEY" && (rawBcd == null || rawBcd.all { it == 0.toByte() })) {
-                    val rRes = iso.transceive(hexToBytes("00B2011400"))
-                    if (isSuccess(rRes) && rRes.size >= 0x2E + 8) {
-                        rawBcd = rRes.sliceArray(0x2E until 0x2E + 8)
-                    }
-                }
-
-                if (rawBcd != null) {
-                    val b = toHex(rawBcd)
-                    cardNumber = "${b.substring(0, 4)} **** **** ${b.substring(12, 16)}"
-                } else {
-                    cardNumber = "**** **** **** ****"
+            } else {
+                // Логика для T-money/Cashbee: извлекаем номер из FCI ответа
+                // Если там есть паттерн номера, берем его, иначе стандартно с 8-го байта
+                if (selectRes!!.size >= 16) {
+                    fullNumber = toHex(selectRes.sliceArray(8 until 16))
                 }
             }
 
-            return CardData(balanceStr, cardNumber, userType)
+            // Маскировка номера (Железное правило)
+            val finalCardNumber = if (fullNumber != null && fullNumber.length >= 16) {
+                "${fullNumber.substring(0, 4)} **** **** ${fullNumber.substring(12, 16)}"
+            } else if (fullNumber != null) {
+                fullNumber // если номер короче 16 символов, выводим как есть
+            } else {
+                "**** **** **** ****"
+            }
+
+            // Возвращаем данные с правильным userType для отображения иконок и цветов
+            return CardData(balanceStr, finalCardNumber, userType)
+
         } catch (e: Exception) {
-            throw e
+            android.util.Log.e(TAG, "Read Error: ${e.message}")
+            return null
         } finally {
             runCatching { iso.close() }
         }
     }
 
-    private fun hexToBytes(s: String): ByteArray = s.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-    private fun toHex(bytes: ByteArray): String = bytes.joinToString("") { "%02X".format(it) }
-    private fun isSuccess(res: ByteArray): Boolean = res.size >= 2 && res[res.size - 2] == 0x90.toByte()
-    private fun findPattern(data: ByteArray, pattern: ByteArray): Int {
-        if (data.size < pattern.size) return -1
-        for (i in 0..data.size - pattern.size) {
-            var match = true
-            for (j in pattern.indices) {
-                if (data[i + j] != pattern[j]) {
-                    match = false
-                    break
-                }
-            }
-            if (match) return i
+    private fun formatBcdCardNumber(data: ByteArray, offset: Int, len: Int): String? {
+        if (offset + len > data.size - 2) return null
+        val sb = StringBuilder()
+        for (i in 0 until len) {
+            val b = data[offset + i].toInt() and 0xFF
+            val d1 = (b shr 4) and 0x0F
+            val d2 = b and 0x0F
+            if (d1 <= 9) sb.append(d1)
+            if (d2 <= 9) sb.append(d2)
         }
-        return -1
+        return if (sb.length >= 10) sb.toString() else null
     }
+
+    private fun isSuccessStatus(res: ByteArray?): Boolean {
+        if (res == null || res.size < 2) return false
+        val sw1 = res[res.size - 2].toInt() and 0xFF
+        val sw2 = res[res.size - 1].toInt() and 0xFF
+        return (sw1 == 0x90 && sw2 == 0x00) || sw1 == 0x62
+    }
+
+    private fun toHex(bytes: ByteArray): String = bytes.joinToString("") { "%02X".format(it) }
+    private fun hexToBytes(s: String): ByteArray = s.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 }
+
 
 class MainActivity : ComponentActivity() {
     private val nfcAdapter by lazy { NfcAdapter.getDefaultAdapter(this) }
@@ -221,7 +209,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         if (intent?.action == NfcAdapter.ACTION_TECH_DISCOVERED) {
             appState = AppState.Processing
             intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)?.let { processTmoneyTag(it) }
@@ -230,15 +217,10 @@ class MainActivity : ComponentActivity() {
             splashPlayer = createPlayer(R.raw.splash, false) { appState = AppState.WaitingForCard }
             waitingPlayer = createPlayer(R.raw.waiting, true)
         }
-
         setContent {
             TADA_NFCTheme {
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f))) {
-                    AnimatedContent(
-                        targetState = appState,
-                        transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(150)) },
-                        label = "MainFlow"
-                    ) { state ->
+                    AnimatedContent(targetState = appState, label = "MainFlow") { state ->
                         when (state) {
                             is AppState.Splash -> splashPlayer?.let { CachedVideoPlayer(it) }
                             is AppState.WaitingForCard -> {
@@ -249,31 +231,14 @@ class MainActivity : ComponentActivity() {
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         Spacer(modifier = Modifier.fillMaxHeight(CardConfig.instructionYOffset))
-                                        Text(
-                                            text = CardConfig.videoInstruction.uppercase(),
-                                            fontSize = CardConfig.instructionFontSize,
-                                            fontWeight = CardConfig.instructionFontWeight,
-                                            color = CardConfig.instructionColor,
-                                            textAlign = TextAlign.Center,
-                                            style = TextStyle(shadow = Shadow(color = CardConfig.instructionShadowColor, blurRadius = CardConfig.instructionShadowBlur))
-                                        )
+                                        Text(text = CardConfig.videoInstruction.uppercase(), fontSize = CardConfig.instructionFontSize, fontWeight = CardConfig.instructionFontWeight, color = CardConfig.instructionColor, textAlign = TextAlign.Center)
                                     }
                                 }
                             }
-                            is AppState.Processing -> {
-                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    CircularProgressIndicator(color = Color.White, strokeWidth = 4.dp)
-                                }
-                            }
+                            is AppState.Processing -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
                             is AppState.CardResult -> CardResultOverlay(
-                                targetBalance = state.balance,
-                                targetCardNumber = state.cardNumber,
-                                targetUserType = state.userType,
-                                targetRotation = cardRotation,
-                                onDismiss = { 
-                                    appState = AppState.WaitingForCard
-                                    moveTaskToBack(true) 
-                                },
+                                targetBalance = state.balance, targetCardNumber = state.cardNumber, targetUserType = state.userType, targetRotation = cardRotation,
+                                onDismiss = { appState = AppState.WaitingForCard; moveTaskToBack(true) },
                                 onSettingsClick = { showSettings = true }
                             )
                         }
@@ -289,93 +254,44 @@ class MainActivity : ComponentActivity() {
             setMediaItem(MediaItem.fromUri(Uri.parse("android.resource://$packageName/$resId")))
             repeatMode = if (isLooping) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
             prepare()
-            addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_ENDED) onEnd() }
-            })
+            addListener(object : Player.Listener { override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_ENDED) onEnd() } })
             playWhenReady = true
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        splashPlayer?.release()
-        waitingPlayer?.release()
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        if (intent.action == NfcAdapter.ACTION_TECH_DISCOVERED) {
-            intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)?.let { processTmoneyTag(it) }
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        nfcAdapter?.enableReaderMode(this, ::processTmoneyTag, 0x0F, null)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        nfcAdapter?.disableReaderMode(this)
-    }
+    override fun onDestroy() { super.onDestroy(); splashPlayer?.release(); waitingPlayer?.release() }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (intent.action == NfcAdapter.ACTION_TECH_DISCOVERED) { intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)?.let { processTmoneyTag(it) } } }
+    override fun onResume() { super.onResume(); nfcAdapter?.enableReaderMode(this, ::processTmoneyTag, 0x0F, null) }
+    override fun onPause() { super.onPause(); nfcAdapter?.disableReaderMode(this) }
 
     private fun processTmoneyTag(tag: Tag) {
         if (appState !is AppState.CardResult) appState = AppState.Processing
-        
         Thread {
             try {
                 val result = TmoneyReader.read(tag)
-                
                 runOnUiThread {
                     if (result != null) {
-                        vibrateConfirmation()
-                        cardRotation += 180f
+                        vibrateConfirmation(); cardRotation += 180f
                         appState = AppState.CardResult(result.balance, result.number, result.userType)
                     } else {
-                        vibrateError()
-                        Toast.makeText(this, "Приложите карту еще раз", Toast.LENGTH_SHORT).show()
-                        if (appState is AppState.Processing) {
-                            appState = AppState.WaitingForCard
-                        }
+                        vibrateError(); Toast.makeText(this, "Приложите карту еще раз", Toast.LENGTH_SHORT).show()
+                        if (appState is AppState.Processing) appState = AppState.WaitingForCard
                     }
                 }
             } catch (e: Exception) {
-                runOnUiThread {
-                    vibrateError()
-                    Toast.makeText(this, "Приложите карту еще раз", Toast.LENGTH_SHORT).show()
-                    if (appState is AppState.Processing) {
-                        appState = AppState.WaitingForCard
-                    }
-                }
+                runOnUiThread { vibrateError(); Toast.makeText(this, "Приложите карту еще раз", Toast.LENGTH_SHORT).show(); if (appState is AppState.Processing) appState = AppState.WaitingForCard }
             }
         }.start()
     }
 
-    private fun vibrateConfirmation() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
-        } else {
-            @Suppress("DEPRECATION") vibrator.vibrate(100)
-        }
-    }
-
+    private fun vibrateConfirmation() { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE)) else @Suppress("DEPRECATION") vibrator.vibrate(100) }
     private fun vibrateError() = vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 100, 50, 100), -1))
 }
 
 @OptIn(UnstableApi::class)
 @Composable
 fun CachedVideoPlayer(player: ExoPlayer) {
-    AndroidView(
-        factory = { context ->
-            PlayerView(context).apply {
-                this.player = player; useController = false
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            }
-        },
-        modifier = Modifier.fillMaxSize()
-    )
+    AndroidView(factory = { context -> PlayerView(context).apply { this.player = player; useController = false; resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM; setBackgroundColor(android.graphics.Color.TRANSPARENT) } }, modifier = Modifier.fillMaxSize())
 }
 
 @Composable
@@ -384,67 +300,31 @@ fun CardResultOverlay(targetBalance: String, targetCardNumber: String, targetUse
     var displayedCardNumber by remember { mutableStateOf(targetCardNumber) }
     var displayedUserType by remember { mutableStateOf(targetUserType) }
     val rotation = remember { Animatable(targetRotation - 180f) }
-
-    LaunchedEffect(targetRotation) {
-        rotation.animateTo(targetRotation, tween(CardConfig.flipAnimationDuration)) {
-            if (this.value >= targetRotation - 90f) {
-                displayedBalance = targetBalance
-                displayedCardNumber = targetCardNumber
-                displayedUserType = targetUserType
-            }
-        }
-    }
-
+    LaunchedEffect(targetRotation) { rotation.animateTo(targetRotation, tween(CardConfig.flipAnimationDuration)) { if (this.value >= targetRotation - 90f) { displayedBalance = targetBalance; displayedCardNumber = targetCardNumber; displayedUserType = targetUserType } } }
     Box(modifier = Modifier.fillMaxSize().clickable(onClick = onDismiss), contentAlignment = CardConfig.cardScreenAlignment) {
-        TadaCard(
-            balance = displayedBalance,
-            cardNumber = displayedCardNumber,
-            userType = displayedUserType,
-            modifier = Modifier.graphicsLayer {
-                rotationY = rotation.value
-                cameraDistance = CardConfig.cameraDistance * density
-            }.graphicsLayer {
-                val norm = (rotation.value % 360 + 360) % 360
-                if (norm > 90 && norm < 270) rotationY = 180f
-            },
-            onCloseClick = onDismiss,
-            onSettingsClick = onSettingsClick
-        )
+        TadaCard(balance = displayedBalance, cardNumber = displayedCardNumber, userType = displayedUserType, modifier = Modifier.graphicsLayer { rotationY = rotation.value; cameraDistance = CardConfig.cameraDistance * density }.graphicsLayer { val norm = (rotation.value % 360 + 360) % 360; if (norm > 90 && norm < 270) rotationY = 180f }, onCloseClick = onDismiss, onSettingsClick = onSettingsClick)
     }
 }
 
 @Composable
 fun SettingsDialog(onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(28.dp), color = CardConfig.activeBg,
-            modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.9f).border(2.dp, CardConfig.activeAccent.copy(0.3f), RoundedCornerShape(28.dp))
-        ) {
+        Surface(shape = RoundedCornerShape(28.dp), color = CardConfig.activeBg, modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.9f).border(2.dp, CardConfig.activeAccent.copy(0.3f), RoundedCornerShape(28.dp))) {
             Column(modifier = Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
                 val context = LocalContext.current
                 Text(text = CardConfig.translate("settings"), fontSize = 28.sp, fontWeight = FontWeight.Black, color = CardConfig.activeAccent)
                 Spacer(modifier = Modifier.height(24.dp)); SectionLabel(CardConfig.translate("language"))
-                CardConfig.Language.values().forEach { lang -> BigControlTile(lang.label, CardConfig.currentLanguage == lang) { CardConfig.currentLanguage = lang }; Spacer(modifier = Modifier.height(8.dp)) }
+                CardConfig.Language.entries.forEach { lang -> BigControlTile(lang.label, CardConfig.currentLanguage == lang) { CardConfig.currentLanguage = lang }; Spacer(modifier = Modifier.height(8.dp)) }
                 Spacer(modifier = Modifier.height(32.dp))
                 Surface(color = CardConfig.activeAccent.copy(alpha = 0.05f), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Button(onClick = {
-                            val intent = Intent(Intent.ACTION_SEND).apply { 
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, "${CardConfig.shareAppMessage}\n${CardConfig.getAppLink(context.packageName)}")
-                            }
-                            context.startActivity(Intent.createChooser(intent, "Share"))
-                        }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = CardConfig.activeAccent), shape = RoundedCornerShape(12.dp)) {
-                            Icon(Icons.Default.Share, null); Spacer(Modifier.width(12.dp)); Text(CardConfig.shareAppLabel, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        }
+                        Button(onClick = { val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${CardConfig.shareAppMessage}\n${CardConfig.getAppLink(context.packageName)}") }; context.startActivity(Intent.createChooser(intent, "Share")) }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = CardConfig.activeAccent), shape = RoundedCornerShape(12.dp)) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(12.dp)); Text(CardConfig.shareAppLabel, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(text = "${CardConfig.translate("version")} 1.0.3", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = CardConfig.activeText.copy(alpha = 0.4f))
                     }
                 }
                 Spacer(modifier = Modifier.height(24.dp))
-                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = CardConfig.activeBg, contentColor = CardConfig.activeText.copy(alpha = 0.8f)), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, CardConfig.activeText.copy(alpha = 0.2f))) {
-                    Text(text = CardConfig.translate("close"), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
+                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = CardConfig.activeBg, contentColor = CardConfig.activeText.copy(alpha = 0.8f)), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, CardConfig.activeText.copy(alpha = 0.2f))) { Text(text = CardConfig.translate("close"), fontWeight = FontWeight.Bold, fontSize = 16.sp) }
             }
         }
     }

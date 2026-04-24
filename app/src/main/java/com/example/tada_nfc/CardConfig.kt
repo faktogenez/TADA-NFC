@@ -54,8 +54,15 @@ object CardConfig {
         "CHILD" to mapOf(Language.EN to "CHILD", Language.RU to "ДЕТСКИЙ", Language.KO to "어린и", Language.JA to "小児", Language.ZH to "儿童"),
         "YOUTH" to mapOf(Language.EN to "YOUTH", Language.RU to "ПОДРОСТОК", Language.KO to "청소년", Language.JA to "中高生", Language.ZH to "青少年"),
         "HIPASS" to mapOf(Language.EN to "HI-PASS", Language.RU to "HI-PASS", Language.KO to "하이패스", Language.JA to "ハイパス", Language.ZH to "高速通行卡"),
-        "UNKNOWN" to mapOf(Language.EN to "CARD", Language.RU to "КАРТА", Language.KO to "카드", Language.JA to "카드", Language.ZH to "卡"),
+        "UNKNOWN" to mapOf(Language.EN to "CARD", Language.RU to "КАРТА", Language.KO to "카드", Language.JA to "カード", Language.ZH to "卡"),
         
+        "unsupported_card" to mapOf(
+            Language.EN to "Unsupported Card",
+            Language.RU to "Карта не поддерживается",
+            Language.KO to "지원되지 않는 카드입니다",
+            Language.JA to "サポートされていないカードです"
+        ),
+
         // Инфо о возрасте
         "age_child" to mapOf(Language.EN to "~12 years", Language.RU to "до 12 лет", Language.KO to "만 12세 이하", Language.JA to "12歳まで", Language.ZH to "12岁以下"),
         "age_youth" to mapOf(Language.EN to "13~18 years", Language.RU to "13-18 лет", Language.KO to "만 13~18세", Language.JA to "13~18歳", Language.ZH to "13-18岁")
@@ -91,7 +98,7 @@ object CardConfig {
     val bodyBackgroundColor = Color(0xFFFBFBFC)
     val bodyTextColor = Color(0xFF111111)
     val secondaryTextColor = Color(0xFF999999)
-    val headerTextColor = Color.White.copy(alpha = 0.9f) // Добавлено
+    val headerTextColor = Color.White.copy(alpha = 0.9f)
 
     // Динамические цвета в зависимости от типа карты
     fun getHeaderColor(userType: String): Color {
@@ -104,7 +111,7 @@ object CardConfig {
         }
     }
 
-    // Вспомогательные алиасы (для обратной совместимости)
+    // Вспомогательные алиасы
     val activeBg get() = bodyBackgroundColor
     val activeAccent get() = getHeaderColor("UNKNOWN")
     val activeText get() = bodyTextColor
