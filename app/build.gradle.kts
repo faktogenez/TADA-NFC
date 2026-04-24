@@ -8,7 +8,6 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        // РЕКОМЕНДАЦИЯ: Измените это на свой уникальный ID перед финальной сборкой
         applicationId = "com.example.tada_nfc" 
         minSdk = 26
         targetSdk = 36
@@ -20,8 +19,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true // Сжатие и защита кода
-            isShrinkResources = true // Удаление неиспользуемых ресурсов
+            isMinifyEnabled = true 
+            isShrinkResources = true 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -46,6 +45,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
     implementation(libs.material)

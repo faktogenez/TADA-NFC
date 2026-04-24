@@ -425,8 +425,6 @@ fun SettingsDialog(onDismiss: () -> Unit) {
                 Text(text = CardConfig.translate("settings"), fontSize = 28.sp, fontWeight = FontWeight.Black, color = CardConfig.activeAccent)
                 Spacer(modifier = Modifier.height(24.dp)); SectionLabel(CardConfig.translate("language"))
                 CardConfig.Language.values().forEach { lang -> BigControlTile(lang.label, CardConfig.currentLanguage == lang) { CardConfig.currentLanguage = lang }; Spacer(modifier = Modifier.height(8.dp)) }
-                Spacer(modifier = Modifier.height(24.dp)); SectionLabel(CardConfig.translate("theme"))
-                CardConfig.ThemeType.values().forEach { theme -> BigThemeTile(theme, CardConfig.currentTheme == theme) { CardConfig.currentTheme = theme }; Spacer(modifier = Modifier.height(8.dp)) }
                 Spacer(modifier = Modifier.height(32.dp))
                 Surface(color = CardConfig.activeAccent.copy(alpha = 0.05f), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -461,21 +459,6 @@ fun BigControlTile(label: String, isSelected: Boolean, onClick: () -> Unit) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (isSelected) CardConfig.activeBg else CardConfig.activeText)
             if (isSelected) Icon(Icons.Default.Check, null, tint = CardConfig.activeBg)
-        }
-    }
-}
-
-@Composable
-fun BigThemeTile(theme: CardConfig.ThemeType, isSelected: Boolean, onClick: () -> Unit) {
-    val color = when(theme) {
-        CardConfig.ThemeType.DARK -> Color(0xFFBD93F9)
-        CardConfig.ThemeType.LIGHT -> Color(0xFF007AFF)
-        CardConfig.ThemeType.NEON -> Color(0xFF00FFFF)
-        CardConfig.ThemeType.SAKURA -> Color(0xFFFF69B4)
-    }
-    Surface(onClick = onClick, shape = RoundedCornerShape(16.dp), color = if (isSelected) color.copy(0.1f) else Color.Transparent, border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, color) else null, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(24.dp).background(color, CircleShape)); Spacer(Modifier.width(16.dp)); Text(theme.displayName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = CardConfig.activeText)
         }
     }
 }
