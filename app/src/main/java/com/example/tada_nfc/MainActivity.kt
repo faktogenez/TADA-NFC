@@ -152,18 +152,14 @@ object TmoneyReader {
                 if (fullNumber == null) {
                     val infoRes = iso.transceive(CMD_CARDINFO_3C)
                     Log.d(TAG, "New CardInfo (3C) Response: ${toHex(infoRes)}")
-                    if (isSuccessStatus(infoRes) && infoRes.size >= 8) {
-                        val cand1 = formatBcdCardNumber(infoRes, 0, 8)
-                        val cand2 = formatBcdCardNumber(infoRes, 2, 8)
-                        fullNumber = if (cand2 != null && cand2.startsWith("0020")) cand2 else cand1
+                    if (isSuccessStatus(infoRes) && infoRes.size >= 20) {
+                        // ЖЕЛЕЗНОЕ ПРАВИЛО: СМЕЩЕНИЕ 12 ДЛЯ HIPASS
+                        fullNumber = formatBcdCardNumber(infoRes, 12, 8)
                     }
                 }
             } else {
-                val rawStandard = findTagData(selectRes!!, 0x12.toByte()) ?:
-                if (selectRes!!.size >= 16) selectRes!!.sliceArray(8 until 16) else null
-
-                if (rawStandard != null && !isAllZeros(rawStandard)) {
-                    fullNumber = toHex(rawStandard)
+                if (selectRes!!.size >= 16) {
+                    fullNumber = toHex(selectRes!!.sliceArray(8 until 16))
                 }
             }
 
@@ -233,7 +229,6 @@ object TmoneyReader {
         return -1
     }
 }
-
 class MainActivity : ComponentActivity() {
     private val nfcAdapter by lazy { NfcAdapter.getDefaultAdapter(this) }
     private val vibrator by lazy {

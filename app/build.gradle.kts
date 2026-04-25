@@ -8,11 +8,12 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.tada_nfc" 
+        // Уникальный ID для Google Play (изменен с com.example)
+        applicationId = "com.faktogenez.tada" 
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.3"
+        versionCode = 4
+        versionName = "1.0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
