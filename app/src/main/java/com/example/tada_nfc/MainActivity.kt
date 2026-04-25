@@ -68,21 +68,26 @@ sealed class AppState {
 data class CardData(val balance: String, val number: String, val userType: String)
 
 object TmoneyReader {
-    private const val TAG = "TmoneyReader"
-    private val decimalFormat = java.text.DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale.US).apply { groupingSeparator = ',' })
+    private const val TAG = "DEBUG"
+    private val decimalFormat = DecimalFormat("#,###", DecimalFormatSymbols(Locale.US).apply { groupingSeparator = ',' })
 
-    // APDU команды
-    private val CMD_BALANCE_TMONEY = byteArrayOf(0x90.toByte(), 0x4C, 0x00, 0x00, 0x04)
-    private val CMD_BALANCE_HIPASS = byteArrayOf(0x80.toByte(), 0x5C, 0x00, 0x00, 0x04)
-    private val CMD_CARDINFO_HIPASS = byteArrayOf(0x00, 0xB0.toByte(), 0x88.toByte(), 0x00, 0x3C.toByte())
+    // APDU Constants from Reference
+    private val CMD_SELECT_SECONDARY_AID = byteArrayOf(0, 0xA4.toByte(), 4, 0, 7, 0xA0.toByte(), 0, 0, 2, 0x45.toByte(), 0, 1, 0)
+    private val CMD_CARDINFO_3C = byteArrayOf(0, 0xB0.toByte(), 0x88.toByte(), 0x00, 0x3C.toByte())
+    private val CMD_BALANCE_HIPASS = byteArrayOf(0x80.toByte(), 0x5C.toByte(), 0, 0, 4)
 
-    fun read(tag: android.nfc.Tag): CardData? {
-        android.util.Log.i(TAG, ">>> SCAN STARTED <<<")
-        val iso = android.nfc.tech.IsoDep.get(tag) ?: return null
+    fun read(tag: Tag): CardData? {
+        Log.i(TAG, ">>> SCAN STARTED <<<")
+        val techList = tag.techList.toList()
+        if (techList.contains("android.nfc.tech.IsoDep")) return readIsoDep(IsoDep.get(tag))
+        return null
+    }
 
+    private fun readIsoDep(iso: IsoDep?): CardData? {
+        if (iso == null) return null
         try {
             iso.connect()
-            iso.timeout = 2000
+            iso.timeout = 5000
 
             val aids = listOf(
                 Pair(hexToBytes("D4100000030001"), "TMONEY"),
@@ -101,13 +106,26 @@ object TmoneyReader {
                 if (isSuccessStatus(res)) {
                     selectRes = res
                     cardBrand = pair.second
+                    Log.d(TAG, "Raw Select Response: ${toHex(res)}")
                     break
                 }
             }
 
             if (selectRes == null) return null
 
-            // 1. Определение типа пользователя (ВЕРНУЛ ВИЗУАЛ)
+            // 1. Balance Calculation
+            val balanceCmd = if (cardBrand == "HIPASS") CMD_BALANCE_HIPASS else hexToBytes("904C000004")
+            val bRes = iso.transceive(balanceCmd)
+            val balanceStr = if (isSuccessStatus(bRes) && bRes.size >= 4) {
+                val b = bRes
+                val balanceInt = (b[3].toInt() and 0xFF) or
+                        ((b[0].toInt() and 0xFF) shl 24) or
+                        ((b[1].toInt() and 0xFF) shl 16) or
+                        ((b[2].toInt() and 0xFF) shl 8)
+                decimalFormat.format(balanceInt)
+            } else "0"
+
+            // 2. User Type Identification
             val userType = if (cardBrand == "HIPASS") "HIPASS" else {
                 if (selectRes!!.size > 29) {
                     when (selectRes[29].toInt() and 0xFF) {
@@ -119,56 +137,65 @@ object TmoneyReader {
                 } else "UNKNOWN"
             }
 
-            // 2. Считывание баланса
-            val balanceCmd = if (cardBrand == "HIPASS") CMD_BALANCE_HIPASS else CMD_BALANCE_TMONEY
-            val bRes = iso.transceive(balanceCmd)
-
-            val balanceInt = if (isSuccessStatus(bRes) && bRes.size >= 4) {
-                (bRes[3].toInt() and 0xFF) or
-                        ((bRes[0].toInt() and 0xFF) shl 24) or
-                        ((bRes[1].toInt() and 0xFF) shl 16) or
-                        ((bRes[2].toInt() and 0xFF) shl 8)
-            } else 0
-            val balanceStr = decimalFormat.format(balanceInt)
-
-            // 3. Считывание номера карты
+            // 3. Card Number Search (STRICT REFERENCE LOGIC)
             var fullNumber: String? = null
 
             if (cardBrand == "HIPASS") {
-                val infoRes = iso.transceive(CMD_CARDINFO_HIPASS)
-                if (isSuccessStatus(infoRes) && infoRes.size >= 20) {
-                    fullNumber = formatBcdCardNumber(infoRes, 12, 8)
+                fullNumber = extractCardNumberFromFCI(selectRes)
+
+                val secondaryRes = iso.transceive(CMD_SELECT_SECONDARY_AID)
+                Log.d(TAG, "Secondary AID Response: ${toHex(secondaryRes)}")
+                if (fullNumber == null) {
+                    fullNumber = extractCardNumberFromFCI(secondaryRes)
+                }
+
+                if (fullNumber == null) {
+                    val infoRes = iso.transceive(CMD_CARDINFO_3C)
+                    Log.d(TAG, "New CardInfo (3C) Response: ${toHex(infoRes)}")
+                    if (isSuccessStatus(infoRes) && infoRes.size >= 8) {
+                        val cand1 = formatBcdCardNumber(infoRes, 0, 8)
+                        val cand2 = formatBcdCardNumber(infoRes, 2, 8)
+                        fullNumber = if (cand2 != null && cand2.startsWith("0020")) cand2 else cand1
+                    }
                 }
             } else {
-                // Логика для T-money/Cashbee: извлекаем номер из FCI ответа
-                // Если там есть паттерн номера, берем его, иначе стандартно с 8-го байта
-                if (selectRes!!.size >= 16) {
-                    fullNumber = toHex(selectRes.sliceArray(8 until 16))
+                val rawStandard = findTagData(selectRes!!, 0x12.toByte()) ?:
+                if (selectRes!!.size >= 16) selectRes!!.sliceArray(8 until 16) else null
+
+                if (rawStandard != null && !isAllZeros(rawStandard)) {
+                    fullNumber = toHex(rawStandard)
                 }
             }
 
-            // Маскировка номера (Железное правило)
+            // 4. MASKING LOGIC (STRICT: XXXX **** **** XXXX)
             val finalCardNumber = if (fullNumber != null && fullNumber.length >= 16) {
                 "${fullNumber.substring(0, 4)} **** **** ${fullNumber.substring(12, 16)}"
             } else if (fullNumber != null) {
-                fullNumber // если номер короче 16 символов, выводим как есть
+                fullNumber
             } else {
                 "**** **** **** ****"
             }
 
-            // Возвращаем данные с правильным userType для отображения иконок и цветов
             return CardData(balanceStr, finalCardNumber, userType)
+        } catch (e: Exception) { Log.e(TAG, "Read Error", e); return null }
+        finally { runCatching { iso.close() } }
+    }
 
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "Read Error: ${e.message}")
-            return null
-        } finally {
-            runCatching { iso.close() }
+    private fun extractCardNumberFromFCI(data: ByteArray?): String? {
+        if (data == null || data.size < 2) return null
+        if (!isSuccessStatus(data)) return null
+        for (i in 0 until data.size - 9) {
+            val tag = data[i].toInt() and 0xFF
+            if (tag == 0x13 && i + 9 < data.size && (data[i + 1].toInt() and 0xFF == 0x08)) {
+                return formatBcdCardNumber(data, i + 2, 8)
+            }
+            if (tag == 0x86) Log.d(TAG, "Tag 0x86 found: Card is ready for data reading")
         }
+        return null
     }
 
     private fun formatBcdCardNumber(data: ByteArray, offset: Int, len: Int): String? {
-        if (offset + len > data.size - 2) return null
+        if (offset + len > data.size) return null
         val sb = StringBuilder()
         for (i in 0 until len) {
             val b = data[offset + i].toInt() and 0xFF
@@ -177,7 +204,7 @@ object TmoneyReader {
             if (d1 <= 9) sb.append(d1)
             if (d2 <= 9) sb.append(d2)
         }
-        return if (sb.length >= 10) sb.toString() else null
+        return sb.toString()
     }
 
     private fun isSuccessStatus(res: ByteArray?): Boolean {
@@ -187,10 +214,25 @@ object TmoneyReader {
         return (sw1 == 0x90 && sw2 == 0x00) || sw1 == 0x62
     }
 
-    private fun toHex(bytes: ByteArray): String = bytes.joinToString("") { "%02X".format(it) }
-    private fun hexToBytes(s: String): ByteArray = s.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-}
+    private fun findTagData(data: ByteArray, tag: Byte): ByteArray? {
+        val idx = findPattern(data, byteArrayOf(tag, 0x08.toByte()))
+        return if (idx != -1 && data.size >= idx + 10) data.sliceArray(idx + 2 until idx + 10) else null
+    }
 
+    private fun isAllZeros(bytes: ByteArray): Boolean = bytes.all { it == 0.toByte() }
+    private fun hexToBytes(s: String): ByteArray = s.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+    private fun toHex(bytes: ByteArray): String = bytes.joinToString("") { "%02X".format(it) }
+
+    private fun findPattern(data: ByteArray, pattern: ByteArray): Int {
+        if (data.size < pattern.size) return -1
+        for (i in 0..data.size - pattern.size) {
+            var match = true
+            for (j in pattern.indices) { if (data[i + j] != pattern[j]) { match = false; break } }
+            if (match) return i
+        }
+        return -1
+    }
+}
 
 class MainActivity : ComponentActivity() {
     private val nfcAdapter by lazy { NfcAdapter.getDefaultAdapter(this) }
@@ -274,12 +316,12 @@ class MainActivity : ComponentActivity() {
                         vibrateConfirmation(); cardRotation += 180f
                         appState = AppState.CardResult(result.balance, result.number, result.userType)
                     } else {
-                        vibrateError(); Toast.makeText(this, "Приложите карту еще раз", Toast.LENGTH_SHORT).show()
+                        vibrateError(); Toast.makeText(this, CardConfig.translate("tap_again"), Toast.LENGTH_SHORT).show()
                         if (appState is AppState.Processing) appState = AppState.WaitingForCard
                     }
                 }
             } catch (e: Exception) {
-                runOnUiThread { vibrateError(); Toast.makeText(this, "Приложите карту еще раз", Toast.LENGTH_SHORT).show(); if (appState is AppState.Processing) appState = AppState.WaitingForCard }
+                runOnUiThread { vibrateError(); Toast.makeText(this, CardConfig.translate("tap_again"), Toast.LENGTH_SHORT).show(); if (appState is AppState.Processing) appState = AppState.WaitingForCard }
             }
         }.start()
     }

@@ -1,7 +1,6 @@
 package com.example.tada_nfc
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +21,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.tada_nfc.ui.theme.TADA_NFCTheme
 
+/**
+ * Адаптивный компонент карточки баланса.
+ * Использует параметры из CardConfig для управления отступами и размерами.
+ */
 @Composable
 fun TadaCard(
     balance: String,
@@ -37,14 +40,15 @@ fun TadaCard(
         shape = RoundedCornerShape(CardConfig.cardCornerRadius),
         modifier = modifier
             .fillMaxWidth(CardConfig.cardWidthFraction)
-            .aspectRatio(CardConfig.cardAspectRatio),
+            .wrapContentHeight(),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // --- Шапка карточки ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.22f)
+                    .height(CardConfig.headerHeight)
                     .background(currentHeaderColor)
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -61,7 +65,7 @@ fun TadaCard(
                                 text = "T",
                                 color = currentHeaderColor,
                                 fontWeight = FontWeight.Black,
-                                fontSize = 16.sp
+                                fontSize = (CardConfig.logoSize.value * 0.6).sp
                             )
                         }
                     }
@@ -74,19 +78,46 @@ fun TadaCard(
                     )
                 }
 
-                IconButton(onClick = onCloseClick, modifier = Modifier.size(CardConfig.closeIconSize)) {
-                    Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+                IconButton(
+                    onClick = onCloseClick, 
+                    modifier = Modifier.size(CardConfig.closeIconSize)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.fillMaxSize(0.6f)
+                    )
                 }
             }
 
-            Box(modifier = Modifier.fillMaxSize().background(CardConfig.bodyBackgroundColor).padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween) {
-                    val displayType = if (userType.uppercase() == "UNKNOWN") CardConfig.translate("unsupported_card") else CardConfig.translate(userType.uppercase())
+            // --- Тело карточки ---
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CardConfig.bodyBackgroundColor)
+                    .padding(CardConfig.spacingBodyPadding)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // 1. Блок категории
+                    val displayType = if (userType.uppercase() == "UNKNOWN") 
+                        CardConfig.translate("unsupported_card") 
+                    else 
+                        CardConfig.translate(userType.uppercase())
+                    
                     val finalLabel = if (userType.uppercase() == "HIPASS") "$displayType+" else displayType
                     val categoryIcon = getCategoryIcon(userType.uppercase())
                     
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 4.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
                             if (categoryIcon != null) {
                                 Icon(
                                     imageVector = categoryIcon,
@@ -96,37 +127,108 @@ fun TadaCard(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                             }
-                            Text(text = finalLabel, color = currentHeaderColor.copy(alpha = 0.8f), fontSize = CardConfig.userTypeSize, fontWeight = FontWeight.ExtraBold)
+                            Text(
+                                text = finalLabel,
+                                color = currentHeaderColor.copy(alpha = 0.8f),
+                                fontSize = CardConfig.userTypeSize,
+                                fontWeight = FontWeight.ExtraBold
+                            )
                         }
                         if (userType.uppercase() == "CHILD" || userType.uppercase() == "YOUTH") {
+                            Spacer(modifier = Modifier.height(CardConfig.spacingCategoryToAge))
                             val ageKey = if (userType.uppercase() == "CHILD") "age_child" else "age_youth"
-                            Text(text = CardConfig.translate(ageKey), color = CardConfig.secondaryTextColor, fontSize = CardConfig.ageInfoSize, fontWeight = FontWeight.Medium)
+                            Text(
+                                text = CardConfig.translate(ageKey),
+                                color = CardConfig.secondaryTextColor,
+                                fontSize = CardConfig.ageInfoSize,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.weight(1f)) {
-                        Text(text = "₩", color = CardConfig.balanceSymbolColor, fontSize = CardConfig.balanceSymbolSize, fontWeight = FontWeight.Light, modifier = Modifier.padding(top = 12.dp, end = 4.dp))
-                        Text(text = balance, color = CardConfig.bodyTextColor, fontSize = CardConfig.balanceTextSize, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(modifier = Modifier.height(CardConfig.spacingAgeToBalance))
+
+                    // 2. Блок Баланса
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "₩",
+                            color = CardConfig.balanceSymbolColor,
+                            fontSize = CardConfig.balanceSymbolSize,
+                            fontWeight = FontWeight.Light,
+                            modifier = Modifier.padding(top = 10.dp, end = 4.dp)
+                        )
+                        Text(
+                            text = balance,
+                            color = CardConfig.bodyTextColor,
+                            fontSize = CardConfig.balanceTextSize,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-1).sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip
+                        )
                     }
 
-                    Text(text = cardNumber, color = CardConfig.secondaryTextColor, fontSize = CardConfig.cardNumberSize, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 8.dp), maxLines = 1)
+                    Spacer(modifier = Modifier.height(CardConfig.spacingBalanceToNumber))
+
+                    // 3. Блок номера карты
+                    Text(
+                        text = cardNumber,
+                        color = CardConfig.secondaryTextColor,
+                        fontSize = CardConfig.cardNumberSize,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1
+                    )
                 }
 
-                IconButton(onClick = onSettingsClick, modifier = Modifier.size(CardConfig.settingsIconSize).align(Alignment.BottomEnd)) {
-                    Icon(imageVector = Icons.Default.Settings, contentDescription = null, tint = currentHeaderColor, modifier = Modifier.size(CardConfig.settingsIconSize))
+                // Кнопка настроек
+                IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier
+                        .size(CardConfig.settingsIconSize)
+                        .align(Alignment.BottomEnd)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = currentHeaderColor.copy(alpha = 0.6f),
+                        modifier = Modifier.fillMaxSize(0.7f)
+                    )
                 }
             }
         }
     }
 }
 
+
 private fun getCategoryIcon(userType: String): ImageVector? {
     return when (userType.uppercase()) {
-        "HIPASS" -> Icons.Outlined.DirectionsCar
-        "ADULT" -> Icons.Outlined.Person
-        "CHILD" -> Icons.Outlined.ChildCare
-        "YOUTH" -> Icons.Outlined.Face
-        "UNKNOWN" -> Icons.Outlined.ErrorOutline
-        else -> Icons.Outlined.ErrorOutline
+        "HIPASS" -> Icons.Outlined.DirectionsCar // Машина (дорожные сборы)
+        "ADULT" -> Icons.Outlined.Person         // Стандартный пользователь
+        "CHILD" -> Icons.Outlined.ChildCare      // Ребенок
+        "YOUTH" -> Icons.Outlined.School         // Школьник/Студент
+        "UNKNOWN" -> Icons.Outlined.HelpOutline  // Вопросительный знак (не распознано)
+        else -> Icons.Outlined.ErrorOutline      // Ошибка по умолчанию
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TadaCardPreview() {
+    TADA_NFCTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Gray),
+            contentAlignment = Alignment.Center
+        ) {
+            TadaCard(
+                balance = "182,500",
+                cardNumber = "3212 **** **** 6788",
+                userType = "YOUTH"
+            )
+        }
     }
 }
