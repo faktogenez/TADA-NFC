@@ -71,7 +71,49 @@ object CardConfig {
             Language.JA to "サポートされていないカードです"
         ),
         "age_child" to mapOf(Language.EN to "~12 years", Language.RU to "до 12 лет", Language.KO to "만 12세 이하", Language.JA to "12歳まで", Language.ZH to "12岁以下"),
-        "age_youth" to mapOf(Language.EN to "13~18 years", Language.RU to "13-18 лет", Language.KO to "만 13~18세", Language.JA to "13~18歳", Language.ZH to "13-18岁")
+        "age_youth" to mapOf(Language.EN to "13~18 years", Language.RU to "13-18 лет", Language.KO to "만 13~18세", Language.JA to "13~18歳", Language.ZH to "13-18岁"),
+        "top_up" to mapOf(
+            Language.EN to "Top Up",
+            Language.RU to "Пополнить",
+            Language.KO to "충전하기",
+            Language.JA to "チャージ",
+            Language.ZH to "充值"
+        ),
+        "commission" to mapOf(
+            Language.EN to "Commission",
+            Language.RU to "Комиссия",
+            Language.KO to "수수료",
+            Language.JA to "手数料",
+            Language.ZH to "手续费"
+        ),
+        "total" to mapOf(
+            Language.EN to "Total",
+            Language.RU to "Итого",
+            Language.KO to "합계",
+            Language.JA to "合計",
+            Language.ZH to "合计"
+        ),
+        "hold_card_writing" to mapOf(
+            Language.EN to "Hold card... writing data",
+            Language.RU to "Не убирайте карту... идет запись",
+            Language.KO to "카드를 대고 계세요... 기록 중",
+            Language.JA to "カードをかざしたままにしてください... 書き込み中",
+            Language.ZH to "请拿稳卡片... 正在写入"
+        ),
+        "card_not_supported" to mapOf(
+            Language.EN to "Card not supported",
+            Language.RU to "Карта не поддерживается",
+            Language.KO to "지원되지 않는 카드입니다",
+            Language.JA to "サポートされていないカードです",
+            Language.ZH to "不支持该卡片"
+        ),
+        "card_not_supported_desc" to mapOf(
+            Language.EN to "Please use T-money, Hi-pass or other transit cards",
+            Language.RU to "Используйте T-money, Hi-pass или другие транспортные карты",
+            Language.KO to "T-money, Hi-pass 또는 기타 교통카드를 사용해 주세요",
+            Language.JA to "T-money、Hi-pass、またはその他の交通系ICカードを使用してください",
+            Language.ZH to "请使用 T-money、Hi-pass 或其他交通卡"
+        )
     )
 
     // Функция для получения перевода по ключу
@@ -111,7 +153,9 @@ object CardConfig {
             "ADULT" -> Color(0xFF0F172A)  // Глубокий сланцево-черный для взрослого тарифа
             "CHILD" -> Color(0xFFF59E0B)  // Теплый янтарный для детского тарифа
             "YOUTH" -> Color(0xFF10B981)  // Яркий изумрудный для подросткового тарифа
-            else -> Color(0xFF64748B)     // Нейтральный сизо-серый для неизвестных карт
+            "UNKNOWN" -> Color(0xFFB91C1C) // Темно-красный (Red 700) для неподдерживаемых карт
+            "RETRY" -> Color(0xFFF97316)   // Насыщенный оранжевый (Orange 500) для предупреждения
+            else -> Color(0xFF64748B)     // Нейтральный сизо-серый для остальных случаев
         }
     }
 
