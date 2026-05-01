@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -64,6 +65,7 @@ sealed class AppState {
     object Splash : AppState()
     object WaitingForCard : AppState()
     object Processing : AppState()
+    object NfcDisabled : AppState()
     data class CardResult(val balance: String, val cardNumber: String, val userType: String) : AppState()
     data class TopUp(val cardData: CardData, val amount: Int = 0) : AppState()
     sealed class Error(val message: String, val isRetry: Boolean = false) : AppState() {
@@ -298,7 +300,26 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                            is AppState.Processing -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
+                            is AppState.Processing -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        strokeWidth = 3.dp,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(Modifier.height(16.dp))
+                                    Text(
+                                        text = CardConfig.translate("hold_card_writing").uppercase(),
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp
+                                    )
+                                }
+                            }
+                            is AppState.NfcDisabled -> NfcDisabledDialog {
+                                startActivity(Intent(Settings.ACTION_NFC_SETTINGS))
+                            }
                             is AppState.CardResult -> CardResultOverlay(
                                 targetBalance = state.balance, targetCardNumber = state.cardNumber, targetUserType = state.userType, targetRotation = cardRotation,
                                 onDismiss = { finishAffinity() },
@@ -335,7 +356,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() { super.onDestroy(); splashPlayer?.release(); waitingPlayer?.release() }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (intent.action == NfcAdapter.ACTION_TECH_DISCOVERED) { intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)?.let { processTmoneyTag(it) } } }
-    override fun onResume() { super.onResume(); nfcAdapter?.enableReaderMode(this, ::processTmoneyTag, 0x0F, null) }
+    override fun onResume() {
+        super.onResume()
+        checkNfcStatus()
+        nfcAdapter?.enableReaderMode(this, ::processTmoneyTag, 0x0F, null)
+    }
+
+    private fun checkNfcStatus() {
+        if (nfcAdapter == null || !nfcAdapter!!.isEnabled) {
+            if (appState !is AppState.CardResult) {
+                appState = AppState.NfcDisabled
+            }
+        } else if (appState == AppState.NfcDisabled) {
+            appState = AppState.WaitingForCard
+        }
+    }
     override fun onPause() { super.onPause(); nfcAdapter?.disableReaderMode(this) }
 
     private fun processTmoneyTag(tag: Tag) {
@@ -377,6 +412,53 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun CachedVideoPlayer(player: ExoPlayer) {
     AndroidView(factory = { context -> PlayerView(context).apply { this.player = player; useController = false; resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM; setBackgroundColor(android.graphics.Color.TRANSPARENT) } }, modifier = Modifier.fillMaxSize())
+}
+
+@Composable
+fun NfcDisabledDialog(onEnableClick: () -> Unit) {
+    Dialog(onDismissRequest = {}) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = CardConfig.activeBg,
+            modifier = Modifier.fillMaxWidth(0.9f)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = null,
+                    tint = CardConfig.activeAccent,
+                    modifier = Modifier.size(64.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = CardConfig.translate("nfc_off_title"),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = CardConfig.activeText,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = CardConfig.translate("nfc_off_desc"),
+                    fontSize = 14.sp,
+                    color = CardConfig.secondaryTextColor,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = onEnableClick,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = CardConfig.activeAccent),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(CardConfig.translate("enable_nfc"), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
 }
 
 @Composable

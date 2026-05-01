@@ -113,6 +113,27 @@ object CardConfig {
             Language.KO to "T-money, Hi-pass 또는 기타 교통카드를 사용해 주세요",
             Language.JA to "T-money、Hi-pass、またはその他の交通系ICカードを使用してください",
             Language.ZH to "请使用 T-money、Hi-pass 或其他交通卡"
+        ),
+        "nfc_off_title" to mapOf(
+            Language.EN to "NFC is Disabled",
+            Language.RU to "NFC выключен",
+            Language.KO to "NFC가 비활성화됨",
+            Language.JA to "NFCが無効です",
+            Language.ZH to "NFC 已禁用"
+        ),
+        "nfc_off_desc" to mapOf(
+            Language.EN to "Please enable NFC in settings to read your transit card",
+            Language.RU to "Пожалуйста, включите NFC в настройках для чтения карты",
+            Language.KO to "교통카드를 읽으려면 설정에서 NFC를 활성화하세요",
+            Language.JA to "カードを読み取るには設定でNFCを有効にしてください",
+            Language.ZH to "请在设置中启用 NFC 以读取交通卡"
+        ),
+        "enable_nfc" to mapOf(
+            Language.EN to "Enable NFC",
+            Language.RU to "Включить NFC",
+            Language.KO to "NFC 활성화",
+            Language.JA to "NFCを有効にする",
+            Language.ZH to "启用 NFC"
         )
     )
 
