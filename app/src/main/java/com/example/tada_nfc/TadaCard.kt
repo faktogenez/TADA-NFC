@@ -34,7 +34,8 @@ fun TadaCard(
     userType: String = "",
     modifier: Modifier = Modifier,
     onCloseClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onHistoryClick: () -> Unit = {}
 ) {
     val currentHeaderColor = CardConfig.getHeaderColor(userType)
 
@@ -212,6 +213,33 @@ fun TadaCard(
                             fontWeight = FontWeight.Medium,
                             maxLines = 1
                         )
+
+                        if (userType.uppercase() != "UNKNOWN" && userType.uppercase() != "RETRY" && userType.uppercase() != "HIPASS") {
+                            Spacer(modifier = Modifier.height(CardConfig.historyBtnTopSpacing))
+                            Button(
+                                onClick = onHistoryClick,
+                                colors = ButtonDefaults.buttonColors(containerColor = currentHeaderColor.copy(alpha = 0.1f)),
+                                shape = RoundedCornerShape(CardConfig.historyBtnCornerRadius),
+                                contentPadding = PaddingValues(horizontal = CardConfig.historyBtnPadding),
+                                modifier = Modifier
+                                    .height(CardConfig.historyBtnHeight)
+                                    .width(CardConfig.historyBtnWidth)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.History,
+                                    contentDescription = null,
+                                    tint = currentHeaderColor,
+                                    modifier = Modifier.size(CardConfig.historyBtnIconSize)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    text = CardConfig.translate("history").uppercase(),
+                                    color = currentHeaderColor,
+                                    fontSize = CardConfig.historyBtnFontSize,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
                     }
                 }
 

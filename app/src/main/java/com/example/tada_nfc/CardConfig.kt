@@ -94,11 +94,11 @@ object CardConfig {
             Language.ZH to "合计"
         ),
         "hold_card_writing" to mapOf(
-            Language.EN to "Hold card... writing data",
-            Language.RU to "Не убирайте карту... идет запись",
-            Language.KO to "카드를 대고 계세요... 기록 중",
-            Language.JA to "カードをかざしたままにしてください... 書き込み中",
-            Language.ZH to "请拿稳卡片... 正在写入"
+            Language.EN to "Hold card... reading data",
+            Language.RU to "Не убирайте карту... идет чтение",
+            Language.KO to "카드를 대고 계세요... 읽는 중",
+            Language.JA to "カードをかざしたままにしてください... 読み取り中",
+            Language.ZH to "请拿稳卡片... 正在读取"
         ),
         "card_not_supported" to mapOf(
             Language.EN to "Card not supported",
@@ -113,6 +113,27 @@ object CardConfig {
             Language.KO to "T-money, Hi-pass 또는 기타 교통카드를 사용해 주세요",
             Language.JA to "T-money、Hi-pass、またはその他の交通系ICカードを使用してください",
             Language.ZH to "请使用 T-money、Hi-pass 或其他交通卡"
+        ),
+        "history" to mapOf(
+            Language.EN to "History",
+            Language.RU to "История",
+            Language.KO to "이용내역",
+            Language.JA to "履歴",
+            Language.ZH to "历史"
+        ),
+        "top_up_tx" to mapOf(
+            Language.EN to "Top-up",
+            Language.RU to "Пополнение",
+            Language.KO to "충전",
+            Language.JA to "チャージ",
+            Language.ZH to "充值"
+        ),
+        "transit_tx" to mapOf(
+            Language.EN to "Transit",
+            Language.RU to "Поездка",
+            Language.KO to "이용",
+            Language.JA to "利用",
+            Language.ZH to "支出"
         ),
         "nfc_off_title" to mapOf(
             Language.EN to "NFC is Disabled",
@@ -198,6 +219,24 @@ object CardConfig {
     val cardNumberSize = 16.sp // Размер шрифта номера карты
     val settingsIconSize = 32.dp // Размер иконки шестеренки (настроек)
     val logoIconLetterSize = 18.sp // Размер буквы 'T' внутри круглого логотипа
+
+    // --- Параметры кнопки "ИСТОРИЯ" на основной карточке ---
+    val historyBtnHeight = 44.dp           // Высота кнопки истории
+    val historyBtnWidth = 180.dp           // Статичная ширина кнопки истории
+    val historyBtnCornerRadius = 14.dp     // Радиус скругления кнопки
+    val historyBtnIconSize = 20.dp         // Размер иконки в кнопке
+    val historyBtnFontSize = userTypeSize  // Размер шрифта текста на кнопке (как у категории)
+    val historyBtnPadding = 16.dp          // Горизонтальный отступ внутри кнопки
+    val historyBtnTopSpacing = 20.dp       // Отступ сверху от номера карты до кнопки
+
+    // --- Параметры Сцены 4 (История транзакций) ---
+    val historyItemHeight = 72.dp         // Высота одной ячейки в списке истории
+    val historyIconSize = 32.dp           // Размер иконки (автобус, метро и т.д.)
+    val historyAmountTextSize = 22.sp     // Размер шрифта основной суммы транзакции
+    val historyBalanceTextSize = 13.sp    // Размер шрифта остатка баланса
+    val historyItemPadding = 16.dp        // Внутренний боковой отступ в ячейке
+    val historyItemCornerRadius = 16.dp   // Радиус скругления углов ячейки истории
+    val historyListSpacing = 8.dp         // Расстояние между ячейками в списке
 
     // --- Расстояния между элементами (Vertical Spacing) ---
     val spacingCategoryToAge = 2.dp // Расстояние между названием категории и возрастом

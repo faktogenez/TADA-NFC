@@ -25,13 +25,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
@@ -41,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -66,7 +74,8 @@ sealed class AppState {
     object WaitingForCard : AppState()
     object Processing : AppState()
     object NfcDisabled : AppState()
-    data class CardResult(val balance: String, val cardNumber: String, val userType: String) : AppState()
+    data class CardResult(val balance: String, val cardNumber: String, val userType: String, val transactions: List<TransactionPlaceholder> = emptyList()) : AppState()
+    data class History(val result: CardResult) : AppState()
     data class TopUp(val cardData: CardData, val amount: Int = 0) : AppState()
     sealed class Error(val message: String, val isRetry: Boolean = false) : AppState() {
         data class CardNotSupported(val msg: String) : Error(msg, false)
@@ -74,6 +83,15 @@ sealed class AppState {
     }
 }
 
+data class TransactionPlaceholder(
+    val type: String,
+    val amount: String,
+    val date: String,
+    val balanceAfter: String,
+    val icon: ImageVector
+)
+
+data class CardDataInternal(val balance: String, val number: String, val userType: String, val transactions: List<TransactionPlaceholder>)
 data class CardData(val balance: String, val number: String, val userType: String)
 
 object TmoneyReader {
@@ -85,7 +103,7 @@ object TmoneyReader {
     private val CMD_CARDINFO_3C = byteArrayOf(0, 0xB0.toByte(), 0x88.toByte(), 0x00, 0x3C.toByte())
     private val CMD_BALANCE_HIPASS = byteArrayOf(0x80.toByte(), 0x5C.toByte(), 0, 0, 4)
 
-    fun read(tag: Tag): CardData? {
+    fun read(tag: Tag): CardDataInternal? {
         Log.i(TAG, ">>> SCAN STARTED <<<")
         val techList = tag.techList.toList()
         if (techList.contains("android.nfc.tech.IsoDep")) {
@@ -94,7 +112,7 @@ object TmoneyReader {
         return null
     }
 
-    private fun readIsoDep(iso: IsoDep?): CardData? {
+    private fun readIsoDep(iso: IsoDep?): CardDataInternal? {
         if (iso == null) return null
         try {
             iso.connect()
@@ -127,14 +145,13 @@ object TmoneyReader {
             // 1. Balance Calculation
             val balanceCmd = if (cardBrand == "HIPASS") CMD_BALANCE_HIPASS else hexToBytes("904C000004")
             val bRes = iso.transceive(balanceCmd)
-            val balanceStr = if (isSuccessStatus(bRes) && bRes.size >= 4) {
-                val b = bRes
-                val balanceInt = (b[3].toInt() and 0xFF) or
-                        ((b[0].toInt() and 0xFF) shl 24) or
-                        ((b[1].toInt() and 0xFF) shl 16) or
-                        ((b[2].toInt() and 0xFF) shl 8)
-                decimalFormat.format(balanceInt)
-            } else "0"
+            val balanceInt = if (isSuccessStatus(bRes) && bRes.size >= 4) {
+                (bRes[3].toInt() and 0xFF) or
+                ((bRes[0].toInt() and 0xFF) shl 24) or
+                ((bRes[1].toInt() and 0xFF) shl 16) or
+                ((bRes[2].toInt() and 0xFF) shl 8)
+            } else 0
+            val balanceStr = decimalFormat.format(balanceInt)
 
             // 2. User Type Identification
             val userType = if (cardBrand == "HIPASS") "HIPASS" else {
@@ -174,9 +191,11 @@ object TmoneyReader {
                 "**** **** **** ****"
             }
 
-            return CardData(balanceStr, finalCardNumber, userType)
+            // 4. Transaction History
+            val history = if (cardBrand != "HIPASS") readTransactionHistory(iso, cardBrand) else emptyList()
+
+            return CardDataInternal(balanceStr, finalCardNumber, userType, history)
         } catch (e: IOException) {
-            // Re-throw IO exceptions to distinguish them from logic errors
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Read Error", e)
@@ -184,6 +203,110 @@ object TmoneyReader {
         } finally {
             runCatching { iso.close() }
         }
+    }
+
+    private fun readTransactionHistory(iso: IsoDep, brand: String): List<TransactionPlaceholder> {
+        val list = mutableListOf<TransactionPlaceholder>()
+        val sfi: Byte = if (brand == "RAILPLUS") 116 else 36
+        val le = if (brand == "TMONEY") 46 else 26
+        
+        for (i in 1..20) {
+            try {
+                val res = iso.transceive(byteArrayOf(0x00, 0xB2.toByte(), i.toByte(), sfi, le.toByte()))
+                if (isSuccessStatus(res) && res.size >= 20) {
+                    val tx = parseRecord(res, brand)
+                    if (tx != null) list.add(tx)
+                    else if ((res[res.size - 2].toInt() and 0xFF) == 0x6A) break
+                } else break
+            } catch (e: Exception) { break }
+        }
+        return list
+    }
+
+    private fun parseRecord(data: ByteArray, brand: String): TransactionPlaceholder? {
+        if (data.size < 20) return null
+        
+        // Simple check for empty record
+        if (data.take(16).all { it == 0.toByte() || it == 0xFF.toByte() }) return null
+
+        return try {
+            val typeByte = data[0].toInt() and 0xFF
+            val isCharge = typeByte == 2
+            
+            val amount = if (brand == "RAILPLUS") {
+                ((data[2].toInt() and 0xFF) shl 24) or ((data[3].toInt() and 0xFF) shl 16) or ((data[4].toInt() and 0xFF) shl 8) or (data[5].toInt() and 0xFF)
+            } else {
+                ((data[12].toInt() and 0xFF) shl 8) or (data[13].toInt() and 0xFF)
+            }
+
+            val balanceAfter = if (brand == "RAILPLUS") {
+                ((data[10].toInt() and 0xFF) shl 24) or ((data[11].toInt() and 0xFF) shl 16) or ((data[12].toInt() and 0xFF) shl 8) or (data[13].toInt() and 0xFF)
+            } else {
+                ((data[4].toInt() and 0xFF) shl 8) or (data[5].toInt() and 0xFF)
+            }
+
+            if (amount == 0) return null
+
+            TransactionPlaceholder(
+                type = CardConfig.translate(if (isCharge) "top_up_tx" else "transit_tx"),
+                amount = (if (isCharge) "+" else "-") + "₩" + decimalFormat.format(amount),
+                date = parseDate(data, brand),
+                balanceAfter = "₩" + decimalFormat.format(balanceAfter),
+                icon = if (isCharge) Icons.Outlined.AddCard else Icons.Outlined.DirectionsBus
+            )
+        } catch (e: Exception) { null }
+    }
+
+    private fun parseDate(data: ByteArray, brand: String): String {
+        return try {
+            // Debug: Log raw hex to identify date positions if needed
+            // Log.d("DEBUG", "Raw record (${brand}): ${toHex(data)}")
+            
+            if (brand == "RAILPLUS") {
+                // RailPlus: YY MM DD HH mm at offset 14..18
+                if (data.size >= 19) {
+                    val y = formatBcd(data[14])
+                    val m = formatBcd(data[15])
+                    val d = formatBcd(data[16])
+                    val hh = formatBcd(data[17])
+                    val mm = formatBcd(data[18])
+                    // Validate month
+                    val mInt = m.toIntOrNull() ?: 0
+                    if (mInt in 1..12) "20$y.$m.$d\n$hh:$mm" else ""
+                } else ""
+            } else {
+                // T-Money/Cashbee: 
+                // In many records, timestamp (YY MM DD HH mm) is at offsets 20..24
+                if (data.size >= 25) {
+                    val y = formatBcd(data[20])
+                    val m = formatBcd(data[21])
+                    val d = formatBcd(data[22])
+                    val hh = formatBcd(data[23])
+                    val mm = formatBcd(data[24])
+                    val mInt = m.toIntOrNull() ?: 0
+                    if (mInt in 1..12) return "20$y.$m.$d\n$hh:$mm"
+                }
+                
+                // Fallback for some T-Money versions: MM DD HH mm at offsets 6..9
+                if (data.size >= 10) {
+                    val m = formatBcd(data[6])
+                    val d = formatBcd(data[7])
+                    val hh = formatBcd(data[8])
+                    val mm = formatBcd(data[9])
+                    val mInt = m.toIntOrNull() ?: 0
+                    if (mInt in 1..12) return "$m.$d\n$hh:$mm"
+                }
+                ""
+            }
+        } catch (e: Exception) { "" }
+    }
+
+    private fun formatBcd(b: Byte): String {
+        val i = b.toInt() and 0xFF
+        val high = (i shr 4) and 0x0F
+        val low = i and 0x0F
+        if (high > 9 || low > 9) return "00" // Not valid BCD
+        return "%02x".format(i)
     }
 
     private fun extractCardNumberFromFCI(data: ByteArray?): String? {
@@ -269,11 +392,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             TADA_NFCTheme {
                 val bgAlpha by animateFloatAsState(
-                    targetValue = if (appState is AppState.CardResult || appState is AppState.Error || appState is AppState.Processing) 0.6f else 1.0f,
+                    targetValue = if (appState is AppState.CardResult || appState is AppState.Error || appState is AppState.Processing || appState is AppState.History) 0.6f else 1.0f,
                     animationSpec = tween(600),
                     label = "bgAlpha"
                 )
-                val bgColor = if (appState is AppState.CardResult || appState is AppState.Error || appState is AppState.Processing) Color.Black else Color.White
+                val bgColor = if (appState is AppState.CardResult || appState is AppState.Error || appState is AppState.Processing || appState is AppState.History) Color.Black else Color.White
                 Box(modifier = Modifier.fillMaxSize().background(bgColor.copy(alpha = bgAlpha))) {
                     AnimatedContent(targetState = appState, label = "MainFlow") { state ->
                         when (state) {
@@ -323,7 +446,15 @@ class MainActivity : ComponentActivity() {
                             is AppState.CardResult -> CardResultOverlay(
                                 targetBalance = state.balance, targetCardNumber = state.cardNumber, targetUserType = state.userType, targetRotation = cardRotation,
                                 onDismiss = { finishAffinity() },
-                                onSettingsClick = { showSettings = true }
+                                onSettingsClick = { showSettings = true },
+                                onHistoryClick = {
+                                    appState = AppState.History(result = state)
+                                }
+                            )
+                            is AppState.History -> HistoryScene(
+                                transactions = state.result.transactions,
+                                onBackClick = { appState = state.result },
+                                headerColor = CardConfig.getHeaderColor(state.result.userType)
                             )
                             is AppState.TopUp -> { /* Placeholder for future top-up UI */ }
                             is AppState.Error -> {
@@ -333,7 +464,8 @@ class MainActivity : ComponentActivity() {
                                     targetUserType = if (state.isRetry) "RETRY" else "UNKNOWN",
                                     targetRotation = cardRotation,
                                     onDismiss = { finishAffinity() },
-                                    onSettingsClick = { showSettings = true }
+                                    onSettingsClick = { showSettings = true },
+                                    onHistoryClick = {}
                                 )
                             }
                         }
@@ -377,14 +509,13 @@ class MainActivity : ComponentActivity() {
         if (appState !is AppState.CardResult) appState = AppState.Processing
         Thread {
             try {
-                // Пытаемся прочитать карту. Может выбросить IOException, если карту убрали слишком рано.
                 val result = TmoneyReader.read(tag)
                 
                 runOnUiThread {
                     if (result != null) {
                         vibrateConfirmation()
                         cardRotation += 180f
-                        appState = AppState.CardResult(result.balance, result.number, result.userType)
+                        appState = AppState.CardResult(result.balance, result.number, result.userType, result.transactions)
                     } else {
                         vibrateError()
                         appState = AppState.Error.CardNotSupported(CardConfig.translate("card_not_supported"))
@@ -416,11 +547,14 @@ fun CachedVideoPlayer(player: ExoPlayer) {
 
 @Composable
 fun NfcDisabledDialog(onEnableClick: () -> Unit) {
-    Dialog(onDismissRequest = {}) {
+    Dialog(
+        onDismissRequest = {},
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
             shape = RoundedCornerShape(28.dp),
             color = CardConfig.activeBg,
-            modifier = Modifier.fillMaxWidth(0.9f)
+            modifier = Modifier.fillMaxWidth(CardConfig.cardWidthFraction)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -462,7 +596,134 @@ fun NfcDisabledDialog(onEnableClick: () -> Unit) {
 }
 
 @Composable
-fun CardResultOverlay(targetBalance: String, targetCardNumber: String, targetUserType: String, targetRotation: Float, onDismiss: () -> Unit, onSettingsClick: () -> Unit) {
+fun HistoryScene(transactions: List<TransactionPlaceholder>, onBackClick: () -> Unit, headerColor: Color) {
+    Dialog(
+        onDismissRequest = onBackClick,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = CardConfig.activeBg,
+            modifier = Modifier
+                .fillMaxWidth(CardConfig.cardWidthFraction) // Ширина строго как у карточки баланса
+                .fillMaxHeight(0.9f)
+                .border(2.dp, headerColor.copy(0.3f), RoundedCornerShape(28.dp))
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                // Header row matching Settings style
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.History,
+                            contentDescription = null,
+                            tint = headerColor,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = CardConfig.translate("history").uppercase(),
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Black,
+                            color = headerColor
+                        )
+                    }
+                    IconButton(onClick = onBackClick) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = CardConfig.activeText.copy(alpha = 0.5f))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // List or Empty State
+                if (transactions.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ReceiptLong,
+                                contentDescription = null,
+                                tint = headerColor.copy(alpha = 0.15f),
+                                modifier = Modifier.size(100.dp)
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            // Можно добавить маленькую иконку запрета поверх, если нужно еще больше акцента
+                            Icon(
+                                imageVector = Icons.Outlined.History,
+                                contentDescription = null,
+                                tint = headerColor.copy(alpha = 0.1f),
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(CardConfig.historyListSpacing)
+                    ) {
+                        items(transactions) { tx ->
+                            TransactionItem(tx, headerColor)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TransactionItem(tx: TransactionPlaceholder, accentColor: Color) {
+    Surface(
+        color = Color.White,
+        shape = RoundedCornerShape(CardConfig.historyItemCornerRadius),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth().height(CardConfig.historyItemHeight)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = CardConfig.historyItemPadding),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Большая черная иконка (размер из конфига)
+            Icon(
+                imageVector = tx.icon,
+                contentDescription = null,
+                tint = Color.Black,
+                modifier = Modifier.size(CardConfig.historyIconSize)
+            )
+            
+            Spacer(Modifier.width(historyItemPaddingOffset()))
+            
+            // Сумма (размер из конфига)
+            Text(
+                text = tx.amount,
+                fontWeight = FontWeight.Black,
+                fontSize = CardConfig.historyAmountTextSize,
+                color = if (tx.amount.startsWith("+")) Color(0xFF10B981) else Color(0xFFB91C1C),
+                modifier = Modifier.weight(1f)
+            )
+            
+            // Остаток (внизу справа, размер из конфига)
+            Box(modifier = Modifier.fillMaxHeight().padding(bottom = 8.dp), contentAlignment = Alignment.BottomEnd) {
+                Text(
+                    text = tx.balanceAfter,
+                    fontSize = CardConfig.historyBalanceTextSize,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.Gray
+                )
+            }
+        }
+    }
+}
+
+private fun historyItemPaddingOffset() = 16.dp
+
+@Composable
+fun CardResultOverlay(targetBalance: String, targetCardNumber: String, targetUserType: String, targetRotation: Float, onDismiss: () -> Unit, onSettingsClick: () -> Unit, onHistoryClick: () -> Unit) {
     var displayedBalance by remember { mutableStateOf(targetBalance) }
     var displayedCardNumber by remember { mutableStateOf(targetCardNumber) }
     var displayedUserType by remember { mutableStateOf(targetUserType) }
@@ -474,17 +735,36 @@ fun CardResultOverlay(targetBalance: String, targetCardNumber: String, targetUse
             .clickable(onClick = onDismiss),
         contentAlignment = CardConfig.cardScreenAlignment
     ) {
-        TadaCard(balance = displayedBalance, cardNumber = displayedCardNumber, userType = displayedUserType, modifier = Modifier.graphicsLayer { rotationY = rotation.value; cameraDistance = CardConfig.cameraDistance * density }.graphicsLayer { val norm = (rotation.value % 360 + 360) % 360; if (norm > 90 && norm < 270) rotationY = 180f }, onCloseClick = onDismiss, onSettingsClick = onSettingsClick)
+        TadaCard(balance = displayedBalance, cardNumber = displayedCardNumber, userType = displayedUserType, modifier = Modifier.graphicsLayer { rotationY = rotation.value; cameraDistance = CardConfig.cameraDistance * density }.graphicsLayer { val norm = (rotation.value % 360 + 360) % 360; if (norm > 90 && norm < 270) rotationY = 180f }, onCloseClick = onDismiss, onSettingsClick = onSettingsClick, onHistoryClick = onHistoryClick)
     }
 }
 
 @Composable
 fun SettingsDialog(onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = RoundedCornerShape(28.dp), color = CardConfig.activeBg, modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.9f).border(2.dp, CardConfig.activeAccent.copy(0.3f), RoundedCornerShape(28.dp))) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(28.dp), 
+            color = CardConfig.activeBg, 
+            modifier = Modifier
+                .fillMaxWidth(CardConfig.cardWidthFraction) // Ширина строго как у карточки баланса
+                .fillMaxHeight(0.9f)
+                .border(2.dp, CardConfig.activeAccent.copy(0.3f), RoundedCornerShape(28.dp))
+        ) {
             Column(modifier = Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
                 val context = LocalContext.current
-                Text(text = CardConfig.translate("settings"), fontSize = 28.sp, fontWeight = FontWeight.Black, color = CardConfig.activeAccent)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = CardConfig.translate("settings"), fontSize = 28.sp, fontWeight = FontWeight.Black, color = CardConfig.activeAccent)
+                    IconButton(onClick = onDismiss) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = CardConfig.activeText.copy(alpha = 0.5f))
+                    }
+                }
                 Spacer(modifier = Modifier.height(24.dp)); SectionLabel(CardConfig.translate("language"))
                 CardConfig.Language.entries.forEach { lang -> BigControlTile(lang.label, CardConfig.currentLanguage == lang) { CardConfig.currentLanguage = lang }; Spacer(modifier = Modifier.height(8.dp)) }
                 Spacer(modifier = Modifier.height(32.dp))
@@ -495,8 +775,6 @@ fun SettingsDialog(onDismiss: () -> Unit) {
                         Text(text = "${CardConfig.translate("version")} 1.0.3", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = CardConfig.activeText.copy(alpha = 0.4f))
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
-                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = CardConfig.activeBg, contentColor = CardConfig.activeText.copy(alpha = 0.8f)), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, CardConfig.activeText.copy(alpha = 0.2f))) { Text(text = CardConfig.translate("close"), fontWeight = FontWeight.Bold, fontSize = 16.sp) }
             }
         }
     }
