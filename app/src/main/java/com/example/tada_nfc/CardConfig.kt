@@ -155,6 +155,13 @@ object CardConfig {
             Language.KO to "NFC 활성화",
             Language.JA to "NFCを有効にする",
             Language.ZH to "启用 NFC"
+        ),
+        "balance_label" to mapOf(
+            Language.EN to "Balance",
+            Language.RU to "Баланс",
+            Language.KO to "잔액",
+            Language.JA to "残高",
+            Language.ZH to "余额"
         )
     )
 
@@ -237,6 +244,17 @@ object CardConfig {
     val historyItemPadding = 16.dp        // Внутренний боковой отступ в ячейке
     val historyItemCornerRadius = 16.dp   // Радиус скругления углов ячейки истории
     val historyListSpacing = 8.dp         // Расстояние между ячейками в списке
+
+    // --- Параметры Уведомления (Notification) ---
+    val notificationBalanceFontSize = 28.sp // Размер шрифта суммы баланса в уведомлении
+    val notificationLabelFontSize = 15.sp   // Размер шрифта номера карты (вместо "Balance")
+    val notificationCircleColor = Color(0xFF1E40AF) // Синий цвет круга логотипа (Blue 800)
+    val notificationBgColor = Color.Transparent     // Фон прозрачный
+    val notificationLabelColor = Color(0xFF777777)  // Цвет текста номера карты
+    val notificationValueColor = Color(0xFF111111)  // Цвет текста суммы баланса
+    val notificationCornerRadius = 20.dp            // Скругление углов уведомления
+    val notificationHeight = 72.dp                  // Высота уведомления
+    val notificationHorizontalPadding = 20.dp       // Боковые отступы внутри уведомления
 
     // --- Расстояния между элементами (Vertical Spacing) ---
     val spacingCategoryToAge = 2.dp // Расстояние между названием категории и возрастом

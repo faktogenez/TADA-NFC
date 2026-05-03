@@ -380,6 +380,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestNotificationPermission()
         window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
         if (intent?.action == NfcAdapter.ACTION_TECH_DISCOVERED) {
             intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)?.let { processTmoneyTag(it) }
@@ -516,6 +517,8 @@ class MainActivity : ComponentActivity() {
                         vibrateConfirmation()
                         cardRotation += 180f
                         appState = AppState.CardResult(result.balance, result.number, result.userType, result.transactions)
+                        // Обновляем уведомление
+                        BalanceNotificationService.updateNotification(this@MainActivity, "₩ ${result.balance}", result.userType, result.number)
                     } else {
                         vibrateError()
                         appState = AppState.Error.CardNotSupported(CardConfig.translate("card_not_supported"))
@@ -537,6 +540,15 @@ class MainActivity : ComponentActivity() {
 
     private fun vibrateConfirmation() { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE)) else @Suppress("DEPRECATION") vibrator.vibrate(100) }
     private fun vibrateError() = vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 100, 50, 100), -1))
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
+    }
 }
 
 @OptIn(UnstableApi::class)

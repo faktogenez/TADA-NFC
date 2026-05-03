@@ -12,8 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -24,8 +24,31 @@ import androidx.compose.ui.unit.sp
 import com.example.tada_nfc.ui.theme.TADA_NFCTheme
 
 /**
+ * Компактный логотип TADA с буквой T.
+ */
+@Composable
+fun TadaLogo(
+    backgroundColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(CardConfig.logoSize)
+            .background(backgroundColor, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "T",
+            color = Color.White,
+            fontSize = CardConfig.logoIconLetterSize,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+/**
  * Адаптивный компонент карточки баланса.
- * Использует параметры из CardConfig для управления отступами и размерами.
  */
 @Composable
 fun TadaCard(
@@ -65,11 +88,13 @@ fun TadaCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    TadaLogo(backgroundColor = Color.White.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = "TADA",
                         color = Color.White,
                         fontWeight = FontWeight.Black,
-                        fontSize = 18.sp,
+                        fontSize = CardConfig.logoTextSize,
                         letterSpacing = 2.sp
                     )
                 }

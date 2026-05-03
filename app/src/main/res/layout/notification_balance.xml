@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notification_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingHorizontal="16dp"
+    android:background="@android:color/transparent">
+
+    <!-- Контейнер для текста, центрированный по вертикали -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Номер карты слева -->
+        <TextView
+            android:id="@+id/notification_card_number"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="1234 **** **** 5678"
+            android:textColor="#777777"
+            android:textSize="15sp"
+            android:fontFamily="sans-serif"
+            android:includeFontPadding="false" />
+
+        <!-- Сумма баланса справа -->
+        <TextView
+            android:id="@+id/notification_balance_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="₩ 182,500"
+            android:textColor="#111111"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-condensed"
+            android:includeFontPadding="false"
+            android:layout_marginStart="8dp" />
+
+    </LinearLayout>
+
+</RelativeLayout>
