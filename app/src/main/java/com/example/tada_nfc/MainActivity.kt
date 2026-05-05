@@ -72,6 +72,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import com.example.tada_nfc.ui.theme.TADA_NFCTheme
 import java.io.IOException
 import java.text.DecimalFormat
@@ -792,6 +794,10 @@ fun HistoryScene(transactions: List<TransactionPlaceholder>, onBackClick: () -> 
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
+                
+                CoupangAdView()
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // List or Empty State
                 if (transactions.isEmpty()) {
@@ -945,12 +951,82 @@ fun SettingsDialog(onDismiss: () -> Unit) {
                             Text(CardConfig.translate("contact_dev"), fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
                         }
 
+                        Spacer(modifier = Modifier.height(24.dp))
+                        CoupangAdView()
+
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(text = "${CardConfig.translate("version")} 1.0.3", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = CardConfig.activeText.copy(alpha = 0.4f))
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun CoupangAdView() {
+    val context = LocalContext.current
+    val partnersId = CardConfig.COUPANG_PARTNERS_ID
+    
+    if (partnersId == 0) return // Не показываем, если ID не настроен
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White, RoundedCornerShape(12.dp))
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AndroidView(
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                            if (url != null && (url.startsWith("coupang://") || url.startsWith("market://") || url.contains("play.google.com"))) {
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                    return true
+                                } catch (e: Exception) {
+                                    return false
+                                }
+                            }
+                            return false
+                        }
+                    }
+                    
+                    val bannerHtml = """
+                        <div style="width:100%; display: flex; justify-content: center;">
+                            <script src="https://ads-partners.coupang.com/g.js"></script>
+                            <script>
+                                new PartnersCoupang.G({
+                                    "id": $partnersId,
+                                    "width": "100%",
+                                    "height": "100"
+                                });
+                            </script>
+                        </div>
+                    """.trimIndent()
+                    
+                    loadDataWithBaseURL("https://ads-partners.coupang.com", bannerHtml, "text/html", "UTF-8", null)
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(100.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = CardConfig.translate("coupang_disclosure"),
+            fontSize = 10.sp,
+            lineHeight = 12.sp,
+            color = Color.Gray,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
     }
 }
 

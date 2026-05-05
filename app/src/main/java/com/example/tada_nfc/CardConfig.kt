@@ -127,6 +127,13 @@ object CardConfig {
             Language.KO to "스캔 중... 카드를 움직이지 마세요",
             Language.JA to "スキャン中... カードを動かさないでください",
             Language.ZH to "正在扫描... 请勿移动卡片"
+        ),
+        "coupang_disclosure" to mapOf(
+            Language.EN to "This post is part of Coupang Partners activities, and I receive a certain commission accordingly.",
+            Language.RU to "Этот пост является частью деятельности партнеров Coupang, и я получаю соответствующую комиссию.",
+            Language.KO to "이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.",
+            Language.JA to "この投稿はCoupangパートナー活動の一環であり、これに応じて一定のコミッションを受け取ります。",
+            Language.ZH to "这篇文章是 Coupang 合作伙伴活动的一部分，我将据此获得一定的佣金。"
         )
     )
 
@@ -261,8 +268,21 @@ object CardConfig {
     val historyBtnPadding = 16.dp
     val historyBtnTopSpacing = 20.dp
 
+    // --- Параметры нативной рекламы (Coupang Native Ad) ---
+    val adCardBg = Color.White
+    val adCardCornerRadius = 12.dp
+    val adDiscountColor = Color(0xFFE11D48) // Яркий красный для скидки
+    val adPriceColor = Color(0xFF111111)
+    val adTitleColor = Color(0xFF444444)
+    @Composable fun adTitleSize() = getResponsiveFontSize(11)
+    @Composable fun adPriceSize() = getResponsiveFontSize(16)
+    @Composable fun adDiscountSize() = getResponsiveFontSize(13)
+
     // Формирование ссылки
     fun getAppLink(packageName: String) = "https://play.google.com/store/apps/details?id=$packageName"
 
     const val SUPPORT_WHATSAPP = "821096688205" // Номер разработчика
+
+    // --- Coupang Partners ---
+    const val COUPANG_PARTNERS_ID = 0 // FIXME: Пожалуйста, замените на ваш реальный ID из Coupang Partners
 }
