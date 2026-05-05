@@ -29,8 +29,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -287,26 +287,29 @@ fun TadaCard(
                             
                             Spacer(modifier = Modifier.height(24.dp))
                             
-                            // Нативная реклама (заглушка по дизайну)
+                            // Нативная реклама (заглушка по дизайну с каруселью)
                             CoupangNativeAd(
                                 ads = listOf(
                                     AdItem(
-                                        title = "판타스 닥터피플 캔ди비\n다면 뷰엔틴, 1개, 36정",
+                                        title = "쎈탁스 닥터피플 멀티비타민 올인원, 1개, 36정",
                                         discount = "25%",
                                         price = "14,200원"
                                     ),
                                     AdItem(
-                                        title = "Premium Multi-Vitamin\nDaily Care Gold, 60 Tabs",
+                                        title = "Premium Multi-Vitamin Daily Care Gold, 60 Tabs",
                                         discount = "30%",
                                         price = "28,500원"
                                     ),
                                     AdItem(
-                                        title = "Natural Energy Booster\nOrganic Extract, 500ml",
+                                        title = "Natural Energy Booster Organic Extract, 500ml",
                                         discount = "15%",
                                         price = "9,900원"
                                     )
                                 ),
-                                onClick = { /* Будет открывать ссылку */ }
+                                onClick = { ad ->
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://partners.coupang.com/"))
+                                    // context.startActivity(intent)
+                                }
                             )
                         }
                     }
@@ -350,7 +353,6 @@ fun CoupangNativeAd(
     ads: List<AdItem>,
     onClick: (AdItem) -> Unit
 ) {
-    // Увеличиваем количество страниц для создания эффекта бесконечной прокрутки
     val actualPageCount = ads.size
     val infinitePageCount = Int.MAX_VALUE
     val initialPage = infinitePageCount / 2
@@ -361,15 +363,14 @@ fun CoupangNativeAd(
     
     val isDragged by pagerState.interactionSource.collectIsDraggedAsState()
 
-    // Плавная автоматическая прокрутка
     LaunchedEffect(isDragged) {
         if (!isDragged) {
             while (true) {
-                delay(3000) // Пауза перед началом движения
+                delay(CardConfig.adAutoScrollDelay)
                 pagerState.animateScrollToPage(
                     page = pagerState.currentPage + 1,
                     animationSpec = tween(
-                        durationMillis = 2000, // Длительность самого перехода (медленно и плавно)
+                        durationMillis = CardConfig.adScrollDuration,
                         easing = LinearEasing
                     )
                 )
@@ -384,92 +385,115 @@ fun CoupangNativeAd(
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 8.dp),
-            pageSpacing = 0.dp
+            contentPadding = PaddingValues(horizontal = CardConfig.adCarouselPadding),
+            pageSpacing = CardConfig.adCarouselSpacing
         ) { index ->
             val page = index % actualPageCount
             val ad = ads[page]
-            Surface(
-                color = CardConfig.adCardBg,
-                shape = RoundedCornerShape(CardConfig.adCardCornerRadius),
-                shadowElevation = 2.dp,
-                border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.3f)),
+            
+            Box(
                 modifier = Modifier
-                    .padding(horizontal = 4.dp)
                     .fillMaxWidth()
-                    .clickable { onClick(ad) }
+                    .height(CardConfig.adImageSize + 25.dp) // Динамическая высота контейнера
+                    .clickable { onClick(ad) },
+                contentAlignment = Alignment.Center
             ) {
-                Row(
+                // 1. Информационная плашка (Нижний слой)
+                Surface(
+                    color = CardConfig.adInfoBg,
+                    shape = RoundedCornerShape(
+                        topStart = CardConfig.adInfoCornerSmall, 
+                        bottomStart = CardConfig.adInfoCornerSmall, 
+                        topEnd = CardConfig.adInfoCornerLarge, 
+                        bottomEnd = CardConfig.adInfoCornerLarge
+                    ),
+                    border = BorderStroke(1.dp, CardConfig.adBorderColor),
                     modifier = Modifier
-                        .padding(8.dp)
-                        .height(80.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxWidth()
+                        .height(CardConfig.adInfoHeight)
+                        .offset(x = 10.dp)
                 ) {
-                    // Изображение товара
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFF3F4F6),
-                        modifier = Modifier.size(64.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = when(page % 3) {
-                                    0 -> Icons.Outlined.ShoppingBag
-                                    1 -> Icons.Outlined.AutoAwesome
-                                    else -> Icons.Outlined.LocalMall
-                                },
-                                contentDescription = null,
-                                tint = Color.LightGray,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
                     Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.Center
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(
+                                start = CardConfig.adTextPaddingStart, 
+                                end = CardConfig.adTextPaddingEnd
+                            ),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = CardConfig.adTextAlignment
                     ) {
                         Text(
                             text = ad.title,
                             fontSize = CardConfig.adTitleSize(),
-                            lineHeight = 14.sp,
+                            lineHeight = 13.sp, // Немного увеличили высоту строки для читаемости двух строк
                             color = CardConfig.adTitleColor,
                             fontWeight = FontWeight.Medium,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            maxLines = 2, // Теперь разрешено 2 строки
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = if (CardConfig.adTextAlignment == Alignment.End) TextAlign.End else TextAlign.Start
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = CardConfig.adPriceArrangement
+                        ) {
                             Surface(
-                                color = CardConfig.adDiscountColor.copy(alpha = 0.1f),
-                                shape = RoundedCornerShape(4.dp)
+                                color = CardConfig.adDiscountBg,
+                                shape = RoundedCornerShape(CardConfig.adDiscountCorner)
                             ) {
                                 Text(
                                     text = ad.discount,
                                     fontSize = CardConfig.adDiscountSize(),
-                                    color = CardConfig.adDiscountColor,
-                                    fontWeight = FontWeight.Black,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 0.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = ad.price,
                                 fontSize = CardConfig.adPriceSize(),
                                 color = CardConfig.adPriceColor,
-                                fontWeight = FontWeight.Black
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
+                    }
+                }
+
+                // 2. Картинка товара (Верхний слой с поворотом)
+                Surface(
+                    color = CardConfig.adProductCardBg,
+                    shape = RoundedCornerShape(CardConfig.adImageCorner),
+                    shadowElevation = CardConfig.adImageShadow,
+                    modifier = Modifier
+                        .size(CardConfig.adImageSize)
+                        .align(Alignment.CenterStart)
+                        .graphicsLayer { rotationZ = CardConfig.adImageRotation }
+                        .zIndex(1f)
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(8.dp)) {
+                        Icon(
+                            imageVector = when(page % 3) {
+                                0 -> Icons.Outlined.ShoppingBag
+                                1 -> Icons.Outlined.AutoAwesome
+                                else -> Icons.Outlined.LocalMall
+                            },
+                            contentDescription = null,
+                            tint = Color.LightGray.copy(alpha = 0.5f),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        // Здесь будет Coil или Glide для загрузки реального изображения
                     }
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         
-        // Индикаторы страниц (точки)
+        // Индикаторы
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -478,7 +502,7 @@ fun CoupangNativeAd(
                 val isSelected = (pagerState.currentPage % actualPageCount) == index
                 Box(
                     modifier = Modifier
-                        .size(if (isSelected) 7.dp else 5.dp)
+                        .size(if (isSelected) 6.dp else 4.dp)
                         .background(
                             color = if (isSelected) Color.Gray else Color.LightGray.copy(alpha = 0.5f),
                             shape = CircleShape

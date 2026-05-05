@@ -1,5 +1,6 @@
 package com.example.tada_nfc
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
@@ -269,14 +270,41 @@ object CardConfig {
     val historyBtnTopSpacing = 20.dp
 
     // --- Параметры нативной рекламы (Coupang Native Ad) ---
-    val adCardBg = Color.White
-    val adCardCornerRadius = 12.dp
-    val adDiscountColor = Color(0xFFE11D48) // Яркий красный для скидки
-    val adPriceColor = Color(0xFF111111)
-    val adTitleColor = Color(0xFF444444)
+    val adInfoBg = Color(0xFFF5F5F5)        // Фон информационной плашки
+    val adBorderColor = Color(0xFFDDDDDD)   // Цвет обводки плашки
+    val adProductCardBg = Color.White       // Фон карточки товара
+    val adDiscountBg = Color(0xFFB91C1C)    // Фон блока скидки
+    val adPriceColor = Color(0xFFB91C1C)    // Цвет цены
+    val adTitleColor = Color(0xFF666666)    // Цвет названия товара
+
+    // Размеры текста (адаптивные)
     @Composable fun adTitleSize() = getResponsiveFontSize(11)
-    @Composable fun adPriceSize() = getResponsiveFontSize(16)
-    @Composable fun adDiscountSize() = getResponsiveFontSize(13)
+    @Composable fun adPriceSize() = getResponsiveFontSize(18) // Увеличено с 16
+    @Composable fun adDiscountSize() = getResponsiveFontSize(11) // Уменьшено с 12
+
+    // Геометрия баннера
+    val adImageSize = 75.dp                 // Размер квадратной карточки товара
+    val adInfoHeight = 65.dp                // Высота информационной плашки
+    val adImageRotation = -7f               // Угол наклона картинки (в градусах)
+    val adImageShadow = 4.dp                // Тень карточки товара
+    
+    // Скругления (Corner Radius)
+    val adImageCorner = 12.dp               // Скругление карточки товара
+    val adInfoCornerSmall = 6.dp            // Малое скругление плашки (слева)
+    val adInfoCornerLarge = 12.dp           // Большое скругление плашки (справа)
+    val adDiscountCorner = 3.dp             // Скругление блока скидки
+
+    // Отступы и выравнивание (Padding & Alignment)
+    val adTextPaddingStart = 65.dp          // Отступ текста слева (чтобы не перекрывался картинкой)
+    val adTextPaddingEnd = 12.dp            // Отступ текста справа
+    val adTextAlignment = Alignment.End     // Выравнивание текста (Alignment.Start или Alignment.End)
+    val adPriceArrangement = Arrangement.End // Выравнивание цены (Arrangement.Start или Arrangement.End)
+
+    // Настройки карусели
+    val adCarouselSpacing = 32.dp           // Расстояние между баннерами
+    val adCarouselPadding = 24.dp           // Боковой отступ карусели
+    val adAutoScrollDelay = 3000L           // Пауза между слайдами (мс)
+    val adScrollDuration = 1200             // Длительность анимации перехода (мс)
 
     // Формирование ссылки
     fun getAppLink(packageName: String) = "https://play.google.com/store/apps/details?id=$packageName"
