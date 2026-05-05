@@ -21,8 +21,9 @@ COMMIT_MSG="feat: full adaptive UI and final NFC protection redesign
 # Выполняем коммит
 git commit -m "$COMMIT_MSG"
 
-# Отправляем в репозиторий
+# Отправляем в репозиторий с установкой upstream, если ветка новая
 echo "⬆️ Синхронизация с GitHub..."
-git push
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+git push --set-upstream origin "$CURRENT_BRANCH"
 
 echo "✅ Все изменения успешно сохранены в облако!"
