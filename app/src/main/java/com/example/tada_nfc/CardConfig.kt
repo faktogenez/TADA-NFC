@@ -4,7 +4,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
@@ -62,13 +65,27 @@ object CardConfig {
         "CHILD" to mapOf(Language.EN to "CHILD", Language.RU to "ДЕТСКИЙ", Language.KO to "어린이", Language.JA to "小児", Language.ZH to "儿童"),
         "YOUTH" to mapOf(Language.EN to "YOUTH", Language.RU to "ПОДРОСТОК", Language.KO to "청소년", Language.JA to "中高生", Language.ZH to "青少年"),
         "HIPASS" to mapOf(Language.EN to "HI-PASS", Language.RU to "HI-PASS", Language.KO to "하이패스", Language.JA to "ハイパス", Language.ZH to "高速通行卡"),
-        "UNKNOWN" to mapOf(Language.EN to "CARD", Language.RU to "КАРТА", Language.KO to "카드", Language.JA to "カード", Language.ZH to "卡"),
+        "UNKNOWN" to mapOf(Language.EN to "CARD", Language.RU to "КАРТА", Language.KO to "카드", Language.JA to "카드", Language.ZH to "卡"),
         "unsupported_card" to mapOf(
             Language.EN to "Unsupported Card",
             Language.RU to "Карта не поддерживается",
             Language.KO to "지원되지 않는 카드입니다",
             Language.JA to "サポートされていないカードです",
             Language.ZH to "不支持该卡片"
+        ),
+        "card_not_supported" to mapOf(
+            Language.EN to "Unsupported Card",
+            Language.RU to "Карта не поддерживается",
+            Language.KO to "지원되지 않는 카드",
+            Language.JA to "非対応カード",
+            Language.ZH to "不支持的卡"
+        ),
+        "card_not_supported_desc" to mapOf(
+            Language.EN to "Please use a valid T-Money, Cashbee or RailPlus card",
+            Language.RU to "Используйте карты T-Money, Cashbee или RailPlus",
+            Language.KO to "T-Money, Cashbee 또는 RailPlus 카드를 사용해주세요",
+            Language.JA to "T-Money, Cashbee, RailPlus カードを使用してください",
+            Language.ZH to "请使用 T-Money, Cashbee 或 RailPlus 卡"
         ),
         "age_child" to mapOf(Language.EN to "~12 years", Language.RU to "до 12 лет", Language.KO to "만 12세 이하", Language.JA to "12歳まで", Language.ZH to "12岁以下"),
         "age_youth" to mapOf(Language.EN to "13~18 years", Language.RU to "13-18 лет", Language.KO to "만 13~18세", Language.JA to "13~18歳", Language.ZH to "13-18岁"),
@@ -112,13 +129,46 @@ object CardConfig {
     val shareAppMessage get() = translate("share_msg")
     val videoInstruction get() = translate("instruction")
 
+    // --- Адаптивные расчеты ---
+    @Composable
+    fun getResponsiveFontSize(baseSp: Int): TextUnit {
+        val configuration = LocalConfiguration.current
+        val screenWidth = configuration.screenWidthDp
+        // Базовый расчет относительно ширины 360dp (стандартный телефон)
+        val factor = (screenWidth / 360f).coerceIn(0.8f, 1.2f)
+        return (baseSp * factor).sp
+    }
+
+    @Composable
+    fun getResponsiveDp(baseDp: Int): Dp {
+        val configuration = LocalConfiguration.current
+        val screenWidth = configuration.screenWidthDp
+        val factor = (screenWidth / 360f).coerceIn(0.8f, 1.2f)
+        return (baseDp * factor).dp
+    }
+
     // --- Настройки инструкции (Overlay) ---
     var instructionYOffset by mutableStateOf(0.65f)
-    var instructionFontSize by mutableStateOf(25.sp)
+    @Composable
+    fun instructionFontSize() = getResponsiveFontSize(24)
     var instructionFontWeight by mutableStateOf(FontWeight.ExtraBold)
     var instructionColor by mutableStateOf(Color(0xFF333333))
     var instructionShadowColor by mutableStateOf(Color.White.copy(alpha = 0.5f))
     var instructionShadowBlur by mutableStateOf(4f)
+
+    // --- Цвета (Colors) ---
+    val colorError = Color(0xFFB91C1C) // Глубокий красный (ошибки)
+    val colorPurpleBorder = Color(0xFF7C3AED) // Фиолетовый (рамки)
+    val colorDialogBg = Color.White.copy(alpha = 0.95f) // Фон диалогов
+
+    // --- Параметры окна "NFC Отключен" (NFC Off Dialog) ---
+    @Composable fun nfcOffTitleSize() = getResponsiveFontSize(24) // Уменьшено с 32 до 24
+    @Composable fun nfcOffDescSize() = getResponsiveFontSize(18)
+    @Composable fun nfcOffButtonTextSize() = getResponsiveFontSize(18)
+    @Composable fun nfcOffIconSize() = getResponsiveDp(100)
+    @Composable fun nfcOffHeaderPadding() = getResponsiveDp(8)
+    @Composable fun nfcOffContentPadding() = getResponsiveDp(24)
+    val nfcOffCornerRadius = 16.dp
 
     // --- Параметры карточки ---
     val cardWidthFraction = 0.85f
@@ -157,19 +207,19 @@ object CardConfig {
     val activeAccent get() = dialogAccent
     val activeText get() = bodyTextColor
 
-    // --- Размеры элементов ---
-    val headerHeight = 52.dp
-    val logoSize = 28.dp
-    val logoTextSize = 16.sp
-    val closeIconSize = 42.dp
-    val userTypeSize = 16.sp
-    val ageInfoSize = 12.sp
-    val balanceTextSize = 65.sp
-    val balanceSymbolSize = 30.sp
+    // --- Размеры элементов (Адаптивные) ---
+    @Composable fun headerHeight() = getResponsiveDp(52)
+    @Composable fun logoSize() = getResponsiveDp(28)
+    @Composable fun logoTextSize() = getResponsiveFontSize(16)
+    @Composable fun closeIconSize() = getResponsiveDp(42)
+    @Composable fun userTypeSize() = getResponsiveFontSize(16)
+    @Composable fun ageInfoSize() = getResponsiveFontSize(12)
+    @Composable fun balanceTextSize() = getResponsiveFontSize(60)
+    @Composable fun balanceSymbolSize() = getResponsiveFontSize(30)
     val balanceSymbolColor = Color(0xFF999999)
-    val cardNumberSize = 16.sp
-    val settingsIconSize = 32.dp
-    val logoIconLetterSize = 18.sp
+    @Composable fun cardNumberSize() = getResponsiveFontSize(16)
+    @Composable fun settingsIconSize() = getResponsiveDp(32)
+    @Composable fun logoIconLetterSize() = getResponsiveFontSize(18)
 
     // --- Параметры уведомления ---
     val notificationCircleColor = Color(0xFF007BFF)
@@ -179,9 +229,9 @@ object CardConfig {
     val notificationBalanceFontSize = 28.sp
 
     // --- Размеры и отступы (Spacing) ---
-    val spacingBodyPadding = 32.dp
-    val spacingAgeToBalance = 12.dp
-    val spacingBalanceToNumber = 4.dp
+    @Composable fun spacingBodyPadding() = getResponsiveDp(32)
+    @Composable fun spacingAgeToBalance() = getResponsiveDp(12)
+    @Composable fun spacingBalanceToNumber() = getResponsiveDp(4)
 
     // --- Параметры истории ---
     val historyListSpacing = 10.dp

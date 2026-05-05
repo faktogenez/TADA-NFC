@@ -33,14 +33,14 @@ fun TadaLogo(
 ) {
     Box(
         modifier = modifier
-            .size(CardConfig.logoSize)
+            .size(CardConfig.logoSize())
             .background(backgroundColor, CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = "T",
             color = Color.White,
-            fontSize = CardConfig.logoIconLetterSize,
+            fontSize = CardConfig.logoIconLetterSize(),
             fontWeight = FontWeight.Black,
             textAlign = TextAlign.Center
         )
@@ -74,7 +74,7 @@ fun TadaCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(CardConfig.headerHeight)
+                    .height(CardConfig.headerHeight())
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
@@ -94,14 +94,14 @@ fun TadaCard(
                         text = "TADA",
                         color = Color.White,
                         fontWeight = FontWeight.Black,
-                        fontSize = CardConfig.logoTextSize,
+                        fontSize = CardConfig.logoTextSize(),
                         letterSpacing = 2.sp
                     )
                 }
 
                 IconButton(
                     onClick = onCloseClick, 
-                    modifier = Modifier.size(CardConfig.closeIconSize)
+                    modifier = Modifier.size(CardConfig.closeIconSize())
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -117,7 +117,7 @@ fun TadaCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(CardConfig.bodyBackgroundColor)
-                    .padding(CardConfig.spacingBodyPadding),
+                    .padding(CardConfig.spacingBodyPadding()),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -161,7 +161,7 @@ fun TadaCard(
                                        else if (isRetry) CardConfig.translate("tap_again").uppercase()
                                        else CardConfig.translate(userType.uppercase()),
                                 color = currentHeaderColor.copy(alpha = 0.8f),
-                                fontSize = if (isUnknown || isRetry) 20.sp else CardConfig.userTypeSize,
+                                fontSize = if (isUnknown || isRetry) CardConfig.userTypeSize() else CardConfig.userTypeSize(),
                                 fontWeight = FontWeight.ExtraBold,
                                 textAlign = TextAlign.Center
                             )
@@ -170,7 +170,7 @@ fun TadaCard(
                                 Text(
                                     text = " (${CardConfig.translate(ageKey)})",
                                     color = CardConfig.secondaryTextColor,
-                                    fontSize = CardConfig.ageInfoSize,
+                                    fontSize = CardConfig.ageInfoSize(),
                                     fontWeight = FontWeight.Medium,
                                     textAlign = TextAlign.Center
                                 )
@@ -179,7 +179,7 @@ fun TadaCard(
                                 Text(
                                     text = "+",
                                     color = currentHeaderColor.copy(alpha = 0.8f),
-                                    fontSize = CardConfig.userTypeSize,
+                                    fontSize = CardConfig.userTypeSize(),
                                     fontWeight = FontWeight.ExtraBold,
                                     textAlign = TextAlign.Center
                                 )
@@ -203,7 +203,7 @@ fun TadaCard(
                     }
 
                     if (!isUnknown && !isRetry) {
-                        Spacer(modifier = Modifier.height(CardConfig.spacingAgeToBalance))
+                        Spacer(modifier = Modifier.height(CardConfig.spacingAgeToBalance()))
 
                         // 2. Блок Баланса
                         Row(
@@ -213,14 +213,14 @@ fun TadaCard(
                             Text(
                                 text = "₩",
                                 color = CardConfig.balanceSymbolColor,
-                                fontSize = CardConfig.balanceSymbolSize,
+                                fontSize = CardConfig.balanceSymbolSize(),
                                 fontWeight = FontWeight.Light,
                                 modifier = Modifier.padding(top = 10.dp, end = 4.dp)
                             )
                             Text(
                                 text = balance,
                                 color = CardConfig.bodyTextColor,
-                                fontSize = CardConfig.balanceTextSize,
+                                fontSize = CardConfig.balanceTextSize(),
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = (-1).sp,
                                 maxLines = 1,
@@ -228,13 +228,13 @@ fun TadaCard(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(CardConfig.spacingBalanceToNumber))
+                        Spacer(modifier = Modifier.height(CardConfig.spacingBalanceToNumber()))
 
                         // 3. Блок номера карты
                         Text(
                             text = cardNumber,
                             color = CardConfig.secondaryTextColor,
-                            fontSize = CardConfig.cardNumberSize,
+                            fontSize = CardConfig.cardNumberSize(),
                             fontWeight = FontWeight.Medium,
                             maxLines = 1
                         )
@@ -272,7 +272,7 @@ fun TadaCard(
                 IconButton(
                     onClick = onSettingsClick,
                     modifier = Modifier
-                        .size(CardConfig.settingsIconSize)
+                        .size(CardConfig.settingsIconSize())
                         .align(Alignment.BottomEnd)
                 ) {
                     Icon(

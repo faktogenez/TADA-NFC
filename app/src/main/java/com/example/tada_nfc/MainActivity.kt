@@ -445,7 +445,7 @@ class MainActivity : ComponentActivity() {
                                         Spacer(modifier = Modifier.fillMaxHeight(CardConfig.instructionYOffset))
                                         Text(
                                             text = CardConfig.videoInstruction.uppercase(),
-                                            fontSize = CardConfig.instructionFontSize,
+                                            fontSize = CardConfig.instructionFontSize(),
                                             fontWeight = CardConfig.instructionFontWeight,
                                             color = CardConfig.instructionColor,
                                             textAlign = TextAlign.Center
@@ -470,9 +470,14 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             }
-                            is AppState.NfcDisabled -> NfcDisabledDialog {
-                                startActivity(Intent(Settings.ACTION_NFC_SETTINGS))
-                            }
+                            is AppState.NfcDisabled -> NfcDisabledDialog(
+                                onEnableClick = {
+                                    startActivity(Intent(Settings.ACTION_NFC_SETTINGS))
+                                },
+                                onCloseClick = {
+                                    finishAffinity() // Закрывает все активити и завершает работу приложения
+                                }
+                            )
                             is AppState.CardResult -> CardResultOverlay(
                                 targetBalance = state.balance, targetCardNumber = state.cardNumber, targetUserType = state.userType, targetRotation = cardRotation,
                                 onDismiss = { finishAffinity() },
@@ -598,11 +603,11 @@ fun CachedVideoPlayer(player: ExoPlayer) {
 }
 
 @Composable
-fun NfcDisabledDialog(onEnableClick: () -> Unit) {
+fun NfcDisabledDialog(onEnableClick: () -> Unit, onCloseClick: () -> Unit) {
     val vibrator = (LocalContext.current.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)
-    val errorColor = Color(0xFFEF4444) // Яркий красный цвет (как UNKNOWN в конфиге)
+    val errorColor = CardConfig.colorError
+    val purpleBorder = CardConfig.colorPurpleBorder
     
-    // Vibrate once when the dialog appears to grab attention
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator?.vibrate(VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE))
@@ -620,81 +625,106 @@ fun NfcDisabledDialog(onEnableClick: () -> Unit) {
         )
     ) {
         Surface(
-            shape = RoundedCornerShape(32.dp),
-            color = Color.White.copy(alpha = 0.92f), // Полупрозрачный белый фон
+            shape = RoundedCornerShape(CardConfig.nfcOffCornerRadius),
+            color = CardConfig.colorDialogBg,
             modifier = Modifier
                 .fillMaxWidth(0.9f)
-                .padding(16.dp)
-                .border(4.dp, errorColor.copy(alpha = 0.5f), RoundedCornerShape(32.dp))
+                .wrapContentHeight()
         ) {
             Column(
-                modifier = Modifier.padding(32.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Large pulsing icon - PortableWifiOff is good for "Connection/NFC disabled"
-                val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse")
-                val scale by infiniteTransition.animateFloat(
-                    initialValue = 1f,
-                    targetValue = 1.1f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(1200, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                        repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-                    ),
-                    label = "scale"
-                )
-
-                Surface(
-                    shape = CircleShape,
-                    color = errorColor.copy(alpha = 0.1f),
-                    modifier = Modifier.size(100.dp).graphicsLayer(scaleX = scale, scaleY = scale)
+                // 1. Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(errorColor)
+                        .padding(horizontal = 16.dp, vertical = CardConfig.nfcOffHeaderPadding()),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TadaLogo(backgroundColor = Color.White.copy(alpha = 0.2f))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "TADA",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = CardConfig.logoTextSize()
+                        )
+                    }
+                    IconButton(onClick = onCloseClick) {
                         Icon(
-                            imageVector = Icons.Default.PortableWifiOff, 
+                            imageVector = Icons.Default.Close,
                             contentDescription = null,
-                            tint = errorColor,
-                            modifier = Modifier.size(56.dp)
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                Text(
-                    text = CardConfig.translate("nfc_off_title").uppercase(),
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color.Black,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 28.sp
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Text(
-                    text = CardConfig.translate("nfc_off_desc"),
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 24.sp
-                )
-                
-                Spacer(modifier = Modifier.height(32.dp))
-                
-                Button(
-                    onClick = onEnableClick,
-                    modifier = Modifier.fillMaxWidth().height(64.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = errorColor),
-                    shape = RoundedCornerShape(20.dp),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+
+                Column(
+                    modifier = Modifier.padding(horizontal = CardConfig.nfcOffContentPadding(), vertical = CardConfig.nfcOffContentPadding() * 1.3f),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = CardConfig.translate("enable_nfc").uppercase(),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 1.sp
+                    // 2. Icon
+                    Icon(
+                        imageVector = Icons.Default.PortableWifiOff,
+                        contentDescription = null,
+                        tint = errorColor,
+                        modifier = Modifier.size(CardConfig.nfcOffIconSize())
                     )
+                    
+                    Spacer(modifier = Modifier.height(CardConfig.nfcOffContentPadding()))
+                    
+                    // 3. Title with border
+                    Surface(
+                        color = Color.Transparent,
+                        border = androidx.compose.foundation.BorderStroke(2.dp, purpleBorder),
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    ) {
+                        Text(
+                            text = CardConfig.translate("nfc_off_title").uppercase(),
+                            fontSize = CardConfig.nfcOffTitleSize(),
+                            fontWeight = FontWeight.Black,
+                            color = errorColor,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            maxLines = 1 // Гарантируем одну строку
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(CardConfig.nfcOffContentPadding()))
+                    
+                    // 4. Description
+                    Text(
+                        text = CardConfig.translate("nfc_off_desc"),
+                        fontSize = CardConfig.nfcOffDescSize(),
+                        fontWeight = FontWeight.Normal,
+                        color = Color.DarkGray,
+                        textAlign = TextAlign.Center,
+                        lineHeight = CardConfig.nfcOffDescSize() * 1.3f
+                    )
+                    
+                    Spacer(modifier = Modifier.height(CardConfig.nfcOffContentPadding() * 1.5f))
+                    
+                    // 5. Button
+                    Button(
+                        onClick = onEnableClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = errorColor),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            text = CardConfig.translate("enable_nfc").uppercase(),
+                            fontSize = CardConfig.nfcOffButtonTextSize(),
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
+                    }
                 }
             }
         }
