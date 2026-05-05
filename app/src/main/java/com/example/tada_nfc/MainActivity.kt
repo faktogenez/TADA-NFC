@@ -62,6 +62,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -74,20 +78,25 @@ import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
 
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
+
+@Stable
 sealed class AppState {
-    object Splash : AppState()
-    object WaitingForCard : AppState()
-    object Processing : AppState()
-    object NfcDisabled : AppState()
-    data class CardResult(val balance: String, val cardNumber: String, val userType: String, val transactions: List<TransactionPlaceholder> = emptyList()) : AppState()
-    data class History(val result: CardResult) : AppState()
-    data class TopUp(val cardData: CardData, val amount: Int = 0) : AppState()
-    sealed class Error(val message: String, val isRetry: Boolean = false) : AppState() {
-        data class CardNotSupported(val msg: String) : Error(msg, false)
-        data class Retry(val msg: String) : Error(msg, true)
+    @Immutable object Splash : AppState()
+    @Immutable object WaitingForCard : AppState()
+    @Immutable object Processing : AppState()
+    @Immutable object NfcDisabled : AppState()
+    @Immutable data class CardResult(val balance: String, val cardNumber: String, val userType: String, val transactions: List<TransactionPlaceholder> = emptyList()) : AppState()
+    @Immutable data class History(val result: CardResult) : AppState()
+    @Immutable data class TopUp(val cardData: CardData, val amount: Int = 0) : AppState()
+    @Stable sealed class Error(val message: String, val isRetry: Boolean = false) : AppState() {
+        @Immutable data class CardNotSupported(val msg: String) : Error(msg, false)
+        @Immutable data class Retry(val msg: String) : Error(msg, true)
     }
 }
 
+@Immutable
 data class TransactionPlaceholder(
     val type: String,
     val amount: String,
@@ -384,6 +393,9 @@ class MainActivity : ComponentActivity() {
     private var splashPlayer: ExoPlayer? = null
     private var waitingPlayer: ExoPlayer? = null
 
+    // Player cache to avoid recreating
+    private val playerCache = mutableMapOf<Int, ExoPlayer>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -511,16 +523,28 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun createPlayer(resId: Int, isLooping: Boolean, onEnd: () -> Unit = {}): ExoPlayer {
-        return ExoPlayer.Builder(this).build().apply {
-            setMediaItem(MediaItem.fromUri(Uri.parse("android.resource://$packageName/$resId")))
-            repeatMode = if (isLooping) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
-            prepare()
-            addListener(object : Player.Listener { override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_ENDED) onEnd() } })
-            playWhenReady = true
+        return playerCache.getOrPut(resId) {
+            ExoPlayer.Builder(this).build().apply {
+                setMediaItem(MediaItem.fromUri(Uri.parse("android.resource://$packageName/$resId")))
+                repeatMode = if (isLooping) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
+                prepare()
+                addListener(object : Player.Listener {
+                    override fun onPlaybackStateChanged(state: Int) {
+                        if (state == Player.STATE_ENDED) onEnd()
+                    }
+                })
+                playWhenReady = true
+            }
         }
     }
 
-    override fun onDestroy() { super.onDestroy(); splashPlayer?.release(); waitingPlayer?.release() }
+    override fun onDestroy() {
+        super.onDestroy()
+        playerCache.values.forEach { it.release() }
+        playerCache.clear()
+        splashPlayer = null
+        waitingPlayer = null
+    }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (intent.action == NfcAdapter.ACTION_TECH_DISCOVERED) { intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)?.let { processTmoneyTag(it) } } }
     override fun onResume() {
         super.onResume()
@@ -544,16 +568,18 @@ class MainActivity : ComponentActivity() {
 
     private fun processTmoneyTag(tag: Tag) {
         if (appState !is AppState.CardResult) appState = AppState.Processing
-        Thread {
+        
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val result = TmoneyReader.read(tag)
                 
-                runOnUiThread {
+                withContext(Dispatchers.Main) {
                     if (result != null) {
                         vibrateConfirmation()
                         cardRotation += 180f
                         appState = AppState.CardResult(result.balance, result.number, result.userType, result.transactions)
-                        // Сохраняем данные для виджета
+                        
+                        // Async saving to preferences
                         val prefs = getSharedPreferences("tada_prefs", Context.MODE_PRIVATE)
                         prefs.edit().apply {
                             putString("last_balance", "₩ ${result.balance}")
@@ -561,8 +587,6 @@ class MainActivity : ComponentActivity() {
                             apply()
                         }
                         TadaWidgetProvider.updateAllWidgets(this@MainActivity)
-
-                        // Обновляем уведомление
                         BalanceNotificationService.updateNotification(this@MainActivity, "₩ ${result.balance}", result.userType, result.number)
                     } else {
                         vibrateError()
@@ -570,17 +594,17 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             } catch (e: IOException) {
-                runOnUiThread {
+                withContext(Dispatchers.Main) {
                     vibrateError()
                     appState = AppState.Error.Retry(CardConfig.translate("tap_again"))
                 }
             } catch (e: Exception) {
                 Log.e("DEBUG", "Unexpected error during NFC processing", e)
-                runOnUiThread {
+                withContext(Dispatchers.Main) {
                     if (appState is AppState.Processing) appState = AppState.WaitingForCard
                 }
             }
-        }.start()
+        }
     }
 
     private fun vibrateConfirmation() { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE)) else @Suppress("DEPRECATION") vibrator.vibrate(100) }
@@ -606,6 +630,7 @@ fun CachedVideoPlayer(player: ExoPlayer) {
 fun NfcDisabledDialog(onEnableClick: () -> Unit, onCloseClick: () -> Unit) {
     val vibrator = (LocalContext.current.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)
     val errorColor = CardConfig.colorError
+    val accentColor = CardConfig.dialogAccent
     val purpleBorder = CardConfig.colorPurpleBorder
     
     LaunchedEffect(Unit) {
@@ -678,22 +703,16 @@ fun NfcDisabledDialog(onEnableClick: () -> Unit, onCloseClick: () -> Unit) {
                     
                     Spacer(modifier = Modifier.height(CardConfig.nfcOffContentPadding()))
                     
-                    // 3. Title with border
-                    Surface(
-                        color = Color.Transparent,
-                        border = androidx.compose.foundation.BorderStroke(2.dp, purpleBorder),
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    ) {
-                        Text(
-                            text = CardConfig.translate("nfc_off_title").uppercase(),
-                            fontSize = CardConfig.nfcOffTitleSize(),
-                            fontWeight = FontWeight.Black,
-                            color = errorColor,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            maxLines = 1 // Гарантируем одну строку
-                        )
-                    }
+                    // 3. Title (without border)
+                    Text(
+                        text = CardConfig.translate("nfc_off_title").uppercase(),
+                        fontSize = CardConfig.nfcOffTitleSize(),
+                        fontWeight = FontWeight.Black,
+                        color = errorColor,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        maxLines = 1 // Гарантируем одну строку
+                    )
                     
                     Spacer(modifier = Modifier.height(CardConfig.nfcOffContentPadding()))
                     
@@ -715,7 +734,7 @@ fun NfcDisabledDialog(onEnableClick: () -> Unit, onCloseClick: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = errorColor),
+                        colors = ButtonDefaults.buttonColors(containerColor = accentColor),
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Text(

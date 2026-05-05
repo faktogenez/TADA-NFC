@@ -36,7 +36,7 @@ object CardConfig {
     // --- Локализация (Переводы) ---
     private val translations = mapOf(
         "language" to mapOf(Language.EN to "Language", Language.RU to "Язык", Language.KO to "언어", Language.JA to "言語", Language.ZH to "语言"),
-        "share" to mapOf(Language.EN to "Share with a friend", Language.RU to "Поделиться с другом", Language.KO to "친구에게 공유하기", Language.JA to "友達に共有する", Language.ZH to "分享给朋友"),
+        "share" to mapOf(Language.EN to "Share with a friend", Language.RU to "Поделиться", Language.KO to "친구에게 공유하기", Language.JA to "友達に共有する", Language.ZH to "分享给朋友"),
         "share_msg" to mapOf(
             Language.EN to "Check out Tada — the easiest way to check your transit card balance!",
             Language.RU to "Попробуй Tada — самый простой способ проверить баланс транспортной карты!",
@@ -100,11 +100,11 @@ object CardConfig {
             Language.ZH to "NFC已关闭"
         ),
         "nfc_off_desc" to mapOf(
-            Language.EN to "Enable NFC in settings and press back",
-            Language.RU to "Включите NFC в настройках и нажмите назад",
-            Language.KO to "설정에서 NFC를 켜고 뒤로 가기를 누르세요",
-            Language.JA to "設定でNFCを有効にして、戻るを押してください",
-            Language.ZH to "在设置中开启NFC并点击返回"
+            Language.EN to "NFC is required to read your card. Please enable it in settings to continue",
+            Language.RU to "Для чтения карты необходим NFC. Пожалуйста, включите его в настройках",
+            Language.KO to "카드를 읽으려면 NFC가 필요합니다. 계속하려면 설정에서 켜주세요",
+            Language.JA to "カードを読み取るにはNFCが必要です。設定で有効にしてください",
+            Language.ZH to "需要开启NFC才能读取卡片。请在设置中开启以继续"
         ),
         "enable_nfc" to mapOf(
             Language.EN to "Enable NFC",
@@ -158,6 +158,7 @@ object CardConfig {
 
     // --- Цвета (Colors) ---
     val colorError = Color(0xFFB91C1C) // Глубокий красный (ошибки)
+    val colorSafe = Color(0xFF10B981)  // Изумрудно-зеленый (безопасно)
     val colorPurpleBorder = Color(0xFF7C3AED) // Фиолетовый (рамки)
     val colorDialogBg = Color.White.copy(alpha = 0.95f) // Фон диалогов
 
