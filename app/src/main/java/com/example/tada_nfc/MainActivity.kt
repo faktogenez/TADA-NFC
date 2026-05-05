@@ -15,11 +15,14 @@ import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.annotation.OptIn
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,9 +37,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.filled.BluetoothDisabled
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.PortableWifiOff
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -370,7 +375,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private var appState by mutableStateOf<AppState>(
-        if (intent?.action == NfcAdapter.ACTION_TECH_DISCOVERED) AppState.Processing else AppState.Splash
+        if (intent?.action == NfcAdapter.ACTION_TECH_DISCOVERED) AppState.Processing 
+        else AppState.Splash
     )
     private var cardRotation by mutableStateOf(0f)
     private var showSettings by mutableStateOf(false)
@@ -380,24 +386,47 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Strict NFC check before anything else
+        val nfc = NfcAdapter.getDefaultAdapter(this)
+        val isNfcEnabled = nfc?.isEnabled == true
+        
         requestNotificationPermission()
         window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
-        if (intent?.action == NfcAdapter.ACTION_TECH_DISCOVERED) {
-            intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)?.let { processTmoneyTag(it) }
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        if (!isNfcEnabled) {
+            appState = AppState.NfcDisabled
         } else {
-            splashPlayer = createPlayer(R.raw.splash, false) {
-                appState = AppState.WaitingForCard
-                waitingPlayer = createPlayer(R.raw.waiting, true)
+            if (intent?.action == NfcAdapter.ACTION_TECH_DISCOVERED) {
+                intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)?.let { processTmoneyTag(it) }
+            } else {
+                splashPlayer = createPlayer(R.raw.splash, false) {
+                    // One more check before moving from splash to waiting
+                    if (nfcAdapter?.isEnabled == true) {
+                        appState = AppState.WaitingForCard
+                        waitingPlayer = createPlayer(R.raw.waiting, true)
+                    } else {
+                        appState = AppState.NfcDisabled
+                    }
+                }
             }
         }
         setContent {
             TADA_NFCTheme {
+                // Foolproof: Prevent accidental back press during scanning or when NFC is off
+                BackHandler(enabled = appState is AppState.Processing || appState is AppState.NfcDisabled) {
+                    if (appState is AppState.NfcDisabled) {
+                        finishAffinity() // If NFC is off and they try to go back, just close the app properly
+                    }
+                }
+
                 val bgAlpha by animateFloatAsState(
-                    targetValue = if (appState is AppState.CardResult || appState is AppState.Error || appState is AppState.Processing || appState is AppState.History) 0.6f else 1.0f,
+                    targetValue = if (appState is AppState.CardResult || appState is AppState.Error || appState is AppState.Processing || appState is AppState.History || appState is AppState.NfcDisabled) 0.6f else 1.0f,
                     animationSpec = tween(600),
                     label = "bgAlpha"
                 )
-                val bgColor = if (appState is AppState.CardResult || appState is AppState.Error || appState is AppState.Processing || appState is AppState.History) Color.Black else Color.White
+                val bgColor = if (appState is AppState.CardResult || appState is AppState.Error || appState is AppState.Processing || appState is AppState.History || appState is AppState.NfcDisabled) Color.Black else Color.White
                 Box(modifier = Modifier.fillMaxSize().background(bgColor.copy(alpha = bgAlpha))) {
                     AnimatedContent(targetState = appState, label = "MainFlow") { state ->
                         when (state) {
@@ -454,8 +483,7 @@ class MainActivity : ComponentActivity() {
                             )
                             is AppState.History -> HistoryScene(
                                 transactions = state.result.transactions,
-                                onBackClick = { appState = state.result },
-                                headerColor = CardConfig.getHeaderColor(state.result.userType)
+                                onBackClick = { appState = state.result }
                             )
                             is AppState.TopUp -> { /* Placeholder for future top-up UI */ }
                             is AppState.Error -> {
@@ -501,6 +529,9 @@ class MainActivity : ComponentActivity() {
                 appState = AppState.NfcDisabled
             }
         } else if (appState == AppState.NfcDisabled) {
+            if (waitingPlayer == null) {
+                waitingPlayer = createPlayer(R.raw.waiting, true)
+            }
             appState = AppState.WaitingForCard
         }
     }
@@ -517,11 +548,20 @@ class MainActivity : ComponentActivity() {
                         vibrateConfirmation()
                         cardRotation += 180f
                         appState = AppState.CardResult(result.balance, result.number, result.userType, result.transactions)
+                        // Сохраняем данные для виджета
+                        val prefs = getSharedPreferences("tada_prefs", Context.MODE_PRIVATE)
+                        prefs.edit().apply {
+                            putString("last_balance", "₩ ${result.balance}")
+                            putString("last_card_number", result.number)
+                            apply()
+                        }
+                        TadaWidgetProvider.updateAllWidgets(this@MainActivity)
+
                         // Обновляем уведомление
                         BalanceNotificationService.updateNotification(this@MainActivity, "₩ ${result.balance}", result.userType, result.number)
                     } else {
                         vibrateError()
-                        appState = AppState.Error.CardNotSupported(CardConfig.translate("card_not_supported"))
+                        appState = AppState.Error.CardNotSupported(CardConfig.translate("unsupported_card"))
                     }
                 }
             } catch (e: IOException) {
@@ -559,48 +599,102 @@ fun CachedVideoPlayer(player: ExoPlayer) {
 
 @Composable
 fun NfcDisabledDialog(onEnableClick: () -> Unit) {
+    val vibrator = (LocalContext.current.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)
+    val errorColor = Color(0xFFEF4444) // Яркий красный цвет (как UNKNOWN в конфиге)
+    
+    // Vibrate once when the dialog appears to grab attention
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator?.vibrate(VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION") vibrator?.vibrate(300)
+        }
+    }
+
     Dialog(
         onDismissRequest = {},
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        )
     ) {
         Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = CardConfig.activeBg,
-            modifier = Modifier.fillMaxWidth(CardConfig.cardWidthFraction)
+            shape = RoundedCornerShape(32.dp),
+            color = Color.White.copy(alpha = 0.92f), // Полупрозрачный белый фон
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .padding(16.dp)
+                .border(4.dp, errorColor.copy(alpha = 0.5f), RoundedCornerShape(32.dp))
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier.padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    imageVector = Icons.Default.Share,
-                    contentDescription = null,
-                    tint = CardConfig.activeAccent,
-                    modifier = Modifier.size(64.dp)
+                // Large pulsing icon - PortableWifiOff is good for "Connection/NFC disabled"
+                val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse")
+                val scale by infiniteTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 1.1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1200, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                        repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+                    ),
+                    label = "scale"
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+
+                Surface(
+                    shape = CircleShape,
+                    color = errorColor.copy(alpha = 0.1f),
+                    modifier = Modifier.size(100.dp).graphicsLayer(scaleX = scale, scaleY = scale)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.PortableWifiOff, 
+                            contentDescription = null,
+                            tint = errorColor,
+                            modifier = Modifier.size(56.dp)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
                 Text(
-                    text = CardConfig.translate("nfc_off_title"),
+                    text = CardConfig.translate("nfc_off_title").uppercase(),
                     fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = CardConfig.activeText,
-                    textAlign = TextAlign.Center
+                    fontWeight = FontWeight.Black,
+                    color = Color.Black,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 28.sp
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
                 Text(
                     text = CardConfig.translate("nfc_off_desc"),
-                    fontSize = 14.sp,
-                    color = CardConfig.secondaryTextColor,
-                    textAlign = TextAlign.Center
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 24.sp
                 )
-                Spacer(modifier = Modifier.height(24.dp))
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
                 Button(
                     onClick = onEnableClick,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = CardConfig.activeAccent),
-                    shape = RoundedCornerShape(16.dp)
+                    modifier = Modifier.fillMaxWidth().height(64.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = errorColor),
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                 ) {
-                    Text(CardConfig.translate("enable_nfc"), fontWeight = FontWeight.Bold)
+                    Text(
+                        text = CardConfig.translate("enable_nfc").uppercase(),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.sp
+                    )
                 }
             }
         }
@@ -608,7 +702,7 @@ fun NfcDisabledDialog(onEnableClick: () -> Unit) {
 }
 
 @Composable
-fun HistoryScene(transactions: List<TransactionPlaceholder>, onBackClick: () -> Unit, headerColor: Color) {
+fun HistoryScene(transactions: List<TransactionPlaceholder>, onBackClick: () -> Unit) {
     Dialog(
         onDismissRequest = onBackClick,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -619,7 +713,7 @@ fun HistoryScene(transactions: List<TransactionPlaceholder>, onBackClick: () -> 
             modifier = Modifier
                 .fillMaxWidth(CardConfig.cardWidthFraction) // Ширина строго как у карточки баланса
                 .fillMaxHeight(0.9f)
-                .border(2.dp, headerColor.copy(0.3f), RoundedCornerShape(28.dp))
+                .border(2.dp, CardConfig.activeAccent.copy(0.3f), RoundedCornerShape(28.dp))
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 // Header row matching Settings style
@@ -632,15 +726,15 @@ fun HistoryScene(transactions: List<TransactionPlaceholder>, onBackClick: () -> 
                         Icon(
                             imageVector = Icons.Outlined.History,
                             contentDescription = null,
-                            tint = headerColor,
+                            tint = CardConfig.activeAccent,
                             modifier = Modifier.size(28.dp)
                         )
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            text = CardConfig.translate("history").uppercase(),
-                            fontSize = 24.sp,
+                            text = CardConfig.translate("history"),
+                            fontSize = 28.sp,
                             fontWeight = FontWeight.Black,
-                            color = headerColor
+                            color = CardConfig.activeAccent
                         )
                     }
                     IconButton(onClick = onBackClick) {
@@ -660,7 +754,7 @@ fun HistoryScene(transactions: List<TransactionPlaceholder>, onBackClick: () -> 
                             Icon(
                                 imageVector = Icons.AutoMirrored.Outlined.ReceiptLong,
                                 contentDescription = null,
-                                tint = headerColor.copy(alpha = 0.15f),
+                                tint = CardConfig.activeAccent.copy(alpha = 0.15f),
                                 modifier = Modifier.size(100.dp)
                             )
                             Spacer(Modifier.height(8.dp))
@@ -668,7 +762,7 @@ fun HistoryScene(transactions: List<TransactionPlaceholder>, onBackClick: () -> 
                             Icon(
                                 imageVector = Icons.Outlined.History,
                                 contentDescription = null,
-                                tint = headerColor.copy(alpha = 0.1f),
+                                tint = CardConfig.activeAccent.copy(alpha = 0.1f),
                                 modifier = Modifier.size(32.dp)
                             )
                         }
@@ -679,7 +773,7 @@ fun HistoryScene(transactions: List<TransactionPlaceholder>, onBackClick: () -> 
                         verticalArrangement = Arrangement.spacedBy(CardConfig.historyListSpacing)
                     ) {
                         items(transactions) { tx ->
-                            TransactionItem(tx, headerColor)
+                            TransactionItem(tx)
                         }
                     }
                 }
@@ -689,7 +783,7 @@ fun HistoryScene(transactions: List<TransactionPlaceholder>, onBackClick: () -> 
 }
 
 @Composable
-fun TransactionItem(tx: TransactionPlaceholder, accentColor: Color) {
+fun TransactionItem(tx: TransactionPlaceholder) {
     Surface(
         color = Color.White,
         shape = RoundedCornerShape(CardConfig.historyItemCornerRadius),

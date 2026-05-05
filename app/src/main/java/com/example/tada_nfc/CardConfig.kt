@@ -3,7 +3,6 @@ package com.example.tada_nfc
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -12,10 +11,11 @@ import java.util.Locale
 
 /**
  * Динамическая конфигурация приложения TADA.
+ * Содержит настройки локализации, дизайна и визуальных параметров.
  */
 object CardConfig {
-    
-    const val APP_NAME = "Tada" // Название приложения
+
+    const val APP_NAME = "Tada"
 
     // --- Настройки языков ---
     enum class Language(val code: String, val label: String) {
@@ -26,7 +26,6 @@ object CardConfig {
         ZH("zh", "中文")
     }
 
-    // Текущий язык приложения
     var currentLanguage by mutableStateOf(
         Language.entries.find { it.code == Locale.getDefault().language } ?: Language.EN
     )
@@ -46,11 +45,11 @@ object CardConfig {
         "settings" to mapOf(Language.EN to "Settings", Language.RU to "Настройки", Language.KO to "설정", Language.JA to "設定", Language.ZH to "设置"),
         "version" to mapOf(Language.EN to "Version", Language.RU to "Версия", Language.KO to "версия", Language.JA to "バージョン", Language.ZH to "版本"),
         "instruction" to mapOf(
-            Language.EN to "Hold card to the back for 5 seconds",
-            Language.RU to "Приложите карту к задней панели на 5 секунд",
-            Language.KO to "카드를 뒷면에 5초 동안 대주세요",
-            Language.JA to "カードを背面に5秒間かざしてください",
-            Language.ZH to "请将卡片贴在背面5秒钟"
+            Language.EN to "Hold card to the back for 3 seconds",
+            Language.RU to "Приложите карту к задней панели на 3 секунды",
+            Language.KO to "카드를 뒷면에 3초 동안 대주세요",
+            Language.JA to "カードを背면에 3秒間かざしてください",
+            Language.ZH to "请将卡片贴在背面3秒钟"
         ),
         "tap_again" to mapOf(
             Language.EN to "Tap card again",
@@ -60,208 +59,148 @@ object CardConfig {
             Language.ZH to "请再次贴上卡片"
         ),
         "ADULT" to mapOf(Language.EN to "ADULT", Language.RU to "ВЗРОСЛЫЙ", Language.KO to "일반", Language.JA to "大人", Language.ZH to "成人"),
-        "CHILD" to mapOf(Language.EN to "CHILD", Language.RU to "ДЕТСКИЙ", Language.KO to "어린и", Language.JA to "小児", Language.ZH to "儿童"),
+        "CHILD" to mapOf(Language.EN to "CHILD", Language.RU to "ДЕТСКИЙ", Language.KO to "어린이", Language.JA to "小児", Language.ZH to "儿童"),
         "YOUTH" to mapOf(Language.EN to "YOUTH", Language.RU to "ПОДРОСТОК", Language.KO to "청소년", Language.JA to "中高生", Language.ZH to "青少年"),
         "HIPASS" to mapOf(Language.EN to "HI-PASS", Language.RU to "HI-PASS", Language.KO to "하이패스", Language.JA to "ハイパス", Language.ZH to "高速通行卡"),
-        "UNKNOWN" to mapOf(Language.EN to "CARD", Language.RU to "КАРТА", Language.KO to "카드", Language.JA to "카드", Language.ZH to "卡"),
+        "UNKNOWN" to mapOf(Language.EN to "CARD", Language.RU to "КАРТА", Language.KO to "카드", Language.JA to "カード", Language.ZH to "卡"),
         "unsupported_card" to mapOf(
             Language.EN to "Unsupported Card",
-            Language.RU to "Карта не поддерживается",
-            Language.KO to "지원되지 않는 카드입니다",
-            Language.JA to "サポートされていないカードです"
-        ),
-        "age_child" to mapOf(Language.EN to "~12 years", Language.RU to "до 12 лет", Language.KO to "만 12세 이하", Language.JA to "12歳まで", Language.ZH to "12岁以下"),
-        "age_youth" to mapOf(Language.EN to "13~18 years", Language.RU to "13-18 лет", Language.KO to "만 13~18세", Language.JA to "13~18歳", Language.ZH to "13-18岁"),
-        "top_up" to mapOf(
-            Language.EN to "Top Up",
-            Language.RU to "Пополнить",
-            Language.KO to "충전하기",
-            Language.JA to "チャージ",
-            Language.ZH to "充值"
-        ),
-        "commission" to mapOf(
-            Language.EN to "Commission",
-            Language.RU to "Комиссия",
-            Language.KO to "수수료",
-            Language.JA to "手数料",
-            Language.ZH to "手续费"
-        ),
-        "total" to mapOf(
-            Language.EN to "Total",
-            Language.RU to "Итого",
-            Language.KO to "합계",
-            Language.JA to "合計",
-            Language.ZH to "合计"
-        ),
-        "hold_card_writing" to mapOf(
-            Language.EN to "Hold card... reading data",
-            Language.RU to "Не убирайте карту... идет чтение",
-            Language.KO to "카드를 대고 계세요... 읽는 중",
-            Language.JA to "カードをかざしたままにしてください... 読み取り中",
-            Language.ZH to "请拿稳卡片... 正在读取"
-        ),
-        "card_not_supported" to mapOf(
-            Language.EN to "Card not supported",
             Language.RU to "Карта не поддерживается",
             Language.KO to "지원되지 않는 카드입니다",
             Language.JA to "サポートされていないカードです",
             Language.ZH to "不支持该卡片"
         ),
-        "card_not_supported_desc" to mapOf(
-            Language.EN to "Please use T-money, Hi-pass or other transit cards",
-            Language.RU to "Используйте T-money, Hi-pass или другие транспортные карты",
-            Language.KO to "T-money, Hi-pass 또는 기타 교통카드를 사용해 주세요",
-            Language.JA to "T-money、Hi-pass、またはその他の交通系ICカードを使用してください",
-            Language.ZH to "请使用 T-money、Hi-pass 或其他交通卡"
-        ),
-        "history" to mapOf(
-            Language.EN to "History",
-            Language.RU to "История",
-            Language.KO to "이용내역",
-            Language.JA to "履歴",
-            Language.ZH to "历史"
-        ),
-        "top_up_tx" to mapOf(
-            Language.EN to "Top-up",
-            Language.RU to "Пополнение",
-            Language.KO to "충전",
-            Language.JA to "チャージ",
-            Language.ZH to "充值"
-        ),
-        "transit_tx" to mapOf(
-            Language.EN to "Transit",
-            Language.RU to "Поездка",
-            Language.KO to "이용",
-            Language.JA to "利用",
-            Language.ZH to "支出"
-        ),
+        "age_child" to mapOf(Language.EN to "~12 years", Language.RU to "до 12 лет", Language.KO to "만 12세 이하", Language.JA to "12歳まで", Language.ZH to "12岁以下"),
+        "age_youth" to mapOf(Language.EN to "13~18 years", Language.RU to "13-18 лет", Language.KO to "만 13~18세", Language.JA to "13~18歳", Language.ZH to "13-18岁"),
+        "top_up" to mapOf(Language.EN to "Top Up", Language.RU to "Пополнить", Language.KO to "충전하기", Language.JA to "チャージ", Language.ZH to "充值"),
+        "history" to mapOf(Language.EN to "History", Language.RU to "История", Language.KO to "이용내역", Language.JA to "履歴", Language.ZH to "历史"),
+        "balance_label" to mapOf(Language.EN to "Balance", Language.RU to "Баланс", Language.KO to "잔액", Language.JA to "残高", Language.ZH to "余额"),
         "nfc_off_title" to mapOf(
             Language.EN to "NFC is Disabled",
             Language.RU to "NFC выключен",
-            Language.KO to "NFC가 비활성화됨",
+            Language.KO to "NFC가 꺼져 있습니다",
             Language.JA to "NFCが無効です",
-            Language.ZH to "NFC 已禁用"
+            Language.ZH to "NFC已关闭"
         ),
         "nfc_off_desc" to mapOf(
-            Language.EN to "Please enable NFC in settings to read your transit card",
-            Language.RU to "Пожалуйста, включите NFC в настройках для чтения карты",
-            Language.KO to "교통카드를 읽으려면 설정에서 NFC를 활성화하세요",
-            Language.JA to "カードを読み取るには設定でNFCを有効にしてください",
-            Language.ZH to "请在设置中启用 NFC 以读取交通卡"
+            Language.EN to "Enable NFC in settings and press back",
+            Language.RU to "Включите NFC в настройках и нажмите назад",
+            Language.KO to "설정에서 NFC를 켜고 뒤로 가기를 누르세요",
+            Language.JA to "設定でNFCを有効にして、戻るを押してください",
+            Language.ZH to "在设置中开启NFC并点击返回"
         ),
         "enable_nfc" to mapOf(
             Language.EN to "Enable NFC",
             Language.RU to "Включить NFC",
-            Language.KO to "NFC 활성화",
+            Language.KO to "NFC 켜기",
             Language.JA to "NFCを有効にする",
-            Language.ZH to "启用 NFC"
+            Language.ZH to "开启NFC"
         ),
-        "balance_label" to mapOf(
-            Language.EN to "Balance",
-            Language.RU to "Баланс",
-            Language.KO to "잔액",
-            Language.JA to "残高",
-            Language.ZH to "余额"
+        "hold_card_writing" to mapOf(
+            Language.EN to "Scanning... Do not move card",
+            Language.RU to "Сканирование... Не убирайте карту",
+            Language.KO to "스캔 중... 카드를 움직이지 마세요",
+            Language.JA to "スキャン中... カードを動かさないでください",
+            Language.ZH to "正在扫描... 请勿移动卡片"
         )
     )
 
-    // Функция для получения перевода по ключу
     fun translate(key: String): String = translations[key]?.get(currentLanguage) ?: key
 
-    // Геттеры для локализованных строк
     val languageLabel get() = translate("language")
     val shareAppLabel get() = translate("share")
     val shareAppMessage get() = translate("share_msg")
     val videoInstruction get() = translate("instruction")
 
     // --- Настройки инструкции (Overlay) ---
-    var instructionYOffset by mutableStateOf(0.65f) // Смещение инструкции по вертикали (0.0 - 1.0)
-    var instructionFontSize by mutableStateOf(25.sp) // Размер шрифта текста инструкции
-    var instructionFontWeight by mutableStateOf(FontWeight.ExtraBold) // Толщина шрифта инструкции
-    var instructionColor by mutableStateOf(Color(0xFF333333)) // Цвет текста инструкции
-    var instructionShadowColor by mutableStateOf(Color.White.copy(alpha = 0.5f)) // Цвет тени текста инструкции
-    var instructionShadowBlur by mutableStateOf(4f) // Размытие тени текста инструкции
+    var instructionYOffset by mutableStateOf(0.65f)
+    var instructionFontSize by mutableStateOf(25.sp)
+    var instructionFontWeight by mutableStateOf(FontWeight.ExtraBold)
+    var instructionColor by mutableStateOf(Color(0xFF333333))
+    var instructionShadowColor by mutableStateOf(Color.White.copy(alpha = 0.5f))
+    var instructionShadowBlur by mutableStateOf(4f)
 
-    // --- Параметры карточки (Адаптированный дизайн) ---
-    val cardWidthFraction = 0.85f // Ширина карточки относительно ширины экрана
-    val cardCornerRadius = 16.dp // Радиус скругления углов карточки
-    val cardScreenAlignment = BiasAlignment(0f, -0.35f) // Выравнивание карточки на экране
-    val flipAnimationDuration = 500 // Длительность анимации переворота (мс)
-    val cameraDistance = 12f // Расстояние виртуальной камеры для 3D эффекта переворота
+    // --- Параметры карточки ---
+    val cardWidthFraction = 0.85f
+    val cardCornerRadius = 16.dp
+    val cardScreenAlignment = BiasAlignment(0f, -0.35f)
+    val flipAnimationDuration = 500
+    val cameraDistance = 12f
 
-    // --- Цвета интерфейса ---
-    val bodyBackgroundColor = Color(0xFFFBFBFC) // Фон основной (нижней) части карточки
-    val bodyTextColor = Color(0xFF111111) // Основной цвет текста (для баланса)
-    val secondaryTextColor = Color(0xFF999999) // Цвет второстепенного текста (для номера карты и доп. инфо)
-    val headerTextColor = Color.White.copy(alpha = 0.9f) // Цвет текста в шапке карточки
+    // --- ОБНОВЛЕННЫЕ ЦВЕТА ИНТЕРФЕЙСА ---
+    val bodyBackgroundColor = Color(0xFFFBFBFC)
+    val bodyTextColor = Color(0xFF111111)
+    val secondaryTextColor = Color(0xFF999999)
+    val headerTextColor = Color.White.copy(alpha = 0.9f)
 
-    // Функция для получения цвета шапки в зависимости от типа карты
+    // Новый акцентный цвет: Electric Blue (вместо Indigo)
+    val dialogAccent = Color(0xFF007BFF)
+    val accentSoft = dialogAccent.copy(alpha = 0.12f) // Мягкий фон для иконок
+
+    /**
+     * Возвращает цвет шапки в зависимости от типа пользователя.
+     */
     fun getHeaderColor(userType: String): Color {
         return when (userType.uppercase()) {
-            "HIPASS" -> Color(0xFF4F46E5) // Насыщенный индиго для Hi-Pass
-            "ADULT" -> Color(0xFF0F172A)  // Глубокий сланцево-черный для взрослого тарифа
-            "CHILD" -> Color(0xFFF59E0B)  // Теплый янтарный для детского тарифа
-            "YOUTH" -> Color(0xFF10B981)  // Яркий изумрудный для подросткового тарифа
-            "UNKNOWN" -> Color(0xFFB91C1C) // Темно-красный (Red 700) для неподдерживаемых карт
-            "RETRY" -> Color(0xFFF97316)   // Насыщенный оранжевый (Orange 500) для предупреждения
-            else -> Color(0xFF64748B)     // Нейтральный сизо-серый для остальных случаев
+            "HIPASS" -> Color(0xFF1E40AF) // Deep Blue
+            "ADULT" -> Color(0xFF0F172A)  // Slate Black
+            "CHILD" -> Color(0xFFF59E0B)  // Amber
+            "YOUTH" -> Color(0xFF10B981)  // Emerald Green
+            "UNKNOWN" -> Color(0xFFEF4444) // Soft Red
+            "RETRY" -> Color(0xFFF97316)   // Orange
+            else -> Color(0xFF94A3B8)     // Slate Gray
         }
     }
 
-    // Вспомогательные свойства для совместимости со старым кодом
+    // Совместимость
     val activeBg get() = bodyBackgroundColor
-    val activeAccent get() = getHeaderColor("UNKNOWN")
+    val activeAccent get() = dialogAccent
     val activeText get() = bodyTextColor
 
-    // --- Размеры элементов карточки ---
-    val headerHeight = 52.dp // Высота верхней синей (цветной) шапки
-    val logoSize = 28.dp // Размер круглого белого логотипа
-    val logoTextSize = 16.sp // Размер шрифта надписи "TADA" в шапке
-    val closeIconSize = 42.dp // Размер иконки (кнопки) закрытия
-    val userTypeSize = 16.sp // Размер шрифта названия категории (например, ПОДРОСТОК)
-    val ageInfoSize = 12.sp // Размер шрифта информации о возрасте (например, 13-18 лет)
-    val balanceTextSize = 65.sp // Размер шрифта суммы баланса
-    val balanceSymbolSize = 30.sp // Размер шрифта символа валюты (₩)
-    val balanceSymbolColor = Color(0xFF999999) // Цвет символа валюты
-    val cardNumberSize = 16.sp // Размер шрифта номера карты
-    val settingsIconSize = 32.dp // Размер иконки шестеренки (настроек)
-    val logoIconLetterSize = 18.sp // Размер буквы 'T' внутри круглого логотипа
+    // --- Размеры элементов ---
+    val headerHeight = 52.dp
+    val logoSize = 28.dp
+    val logoTextSize = 16.sp
+    val closeIconSize = 42.dp
+    val userTypeSize = 16.sp
+    val ageInfoSize = 12.sp
+    val balanceTextSize = 65.sp
+    val balanceSymbolSize = 30.sp
+    val balanceSymbolColor = Color(0xFF999999)
+    val cardNumberSize = 16.sp
+    val settingsIconSize = 32.dp
+    val logoIconLetterSize = 18.sp
 
-    // --- Параметры кнопки "ИСТОРИЯ" на основной карточке ---
-    val historyBtnHeight = 44.dp           // Высота кнопки истории
-    val historyBtnWidth = 180.dp           // Статичная ширина кнопки истории
-    val historyBtnCornerRadius = 14.dp     // Радиус скругления кнопки
-    val historyBtnIconSize = 20.dp         // Размер иконки в кнопке
-    val historyBtnFontSize = userTypeSize  // Размер шрифта текста на кнопке (как у категории)
-    val historyBtnPadding = 16.dp          // Горизонтальный отступ внутри кнопки
-    val historyBtnTopSpacing = 20.dp       // Отступ сверху от номера карты до кнопки
+    // --- Параметры уведомления ---
+    val notificationCircleColor = Color(0xFF007BFF)
+    val notificationLabelColor = Color(0xFF777777)
+    val notificationValueColor = Color(0xFF111111)
+    val notificationLabelFontSize = 15.sp
+    val notificationBalanceFontSize = 28.sp
 
-    // --- Параметры Сцены 4 (История транзакций) ---
-    val historyItemHeight = 72.dp         // Высота одной ячейки в списке истории
-    val historyIconSize = 32.dp           // Размер иконки (автобус, метро и т.д.)
-    val historyAmountTextSize = 22.sp     // Размер шрифта основной суммы транзакции
-    val historyBalanceTextSize = 13.sp    // Размер шрифта остатка баланса
-    val historyItemPadding = 16.dp        // Внутренний боковой отступ в ячейке
-    val historyItemCornerRadius = 16.dp   // Радиус скругления углов ячейки истории
-    val historyListSpacing = 8.dp         // Расстояние между ячейками в списке
+    // --- Размеры и отступы (Spacing) ---
+    val spacingBodyPadding = 32.dp
+    val spacingAgeToBalance = 12.dp
+    val spacingBalanceToNumber = 4.dp
 
-    // --- Параметры Уведомления (Notification) ---
-    val notificationBalanceFontSize = 28.sp // Размер шрифта суммы баланса в уведомлении
-    val notificationLabelFontSize = 15.sp   // Размер шрифта номера карты (вместо "Balance")
-    val notificationCircleColor = Color(0xFF1E40AF) // Синий цвет круга логотипа (Blue 800)
-    val notificationBgColor = Color.Transparent     // Фон прозрачный
-    val notificationLabelColor = Color(0xFF777777)  // Цвет текста номера карты
-    val notificationValueColor = Color(0xFF111111)  // Цвет текста суммы баланса
-    val notificationCornerRadius = 20.dp            // Скругление углов уведомления
-    val notificationHeight = 72.dp                  // Высота уведомления
-    val notificationHorizontalPadding = 20.dp       // Боковые отступы внутри уведомления
+    // --- Параметры истории ---
+    val historyListSpacing = 10.dp
+    val historyItemCornerRadius = 14.dp
+    val historyItemHeight = 76.dp
+    val historyItemPadding = 16.dp
+    val historyIconSize = 34.dp
+    val historyAmountTextSize = 20.sp
+    val historyBalanceTextSize = 13.sp
 
-    // --- Расстояния между элементами (Vertical Spacing) ---
-    val spacingCategoryToAge = 2.dp // Расстояние между названием категории и возрастом
-    val spacingAgeToBalance = 10.dp // Расстояние между информацией о возрасте и балансом
-    val spacingBalanceToNumber = 10.dp // Расстояние между балансом и номером карты
-    val spacingBodyPadding = 16.dp // Внутренний отступ тела карточки
+    // --- Параметры кнопки "ИСТОРИЯ" ---
+    val historyBtnHeight = 44.dp
+    val historyBtnWidth = 180.dp
+    val historyBtnCornerRadius = 14.dp
+    val historyBtnIconSize = 20.dp
+    val historyBtnFontSize = 16.sp
+    val historyBtnPadding = 16.dp
+    val historyBtnTopSpacing = 20.dp
 
-    // Формирование ссылки на приложение в Google Play
+    // Формирование ссылки
     fun getAppLink(packageName: String) = "https://play.google.com/store/apps/details?id=$packageName"
 }
