@@ -47,6 +47,13 @@ object CardConfig {
         "close" to mapOf(Language.EN to "Close", Language.RU to "Закрыть", Language.KO to "닫기", Language.JA to "閉じる", Language.ZH to "关闭"),
         "settings" to mapOf(Language.EN to "Settings", Language.RU to "Настройки", Language.KO to "설정", Language.JA to "設定", Language.ZH to "设置"),
         "version" to mapOf(Language.EN to "Version", Language.RU to "Версия", Language.KO to "версия", Language.JA to "バージョン", Language.ZH to "版本"),
+        "contact_dev" to mapOf(
+            Language.EN to "Support (WhatsApp)",
+            Language.RU to "Поддержка (WhatsApp)",
+            Language.KO to "고객지원 (WhatsApp)",
+            Language.JA to "サポート (WhatsApp)",
+            Language.ZH to "技术支持 (WhatsApp)"
+        ),
         "instruction" to mapOf(
             Language.EN to "Hold card to the back for 3 seconds",
             Language.RU to "Приложите карту к задней панели на 3 секунды",
@@ -64,6 +71,7 @@ object CardConfig {
         "ADULT" to mapOf(Language.EN to "ADULT", Language.RU to "ВЗРОСЛЫЙ", Language.KO to "일반", Language.JA to "大人", Language.ZH to "成人"),
         "CHILD" to mapOf(Language.EN to "CHILD", Language.RU to "ДЕТСКИЙ", Language.KO to "어린이", Language.JA to "小児", Language.ZH to "儿童"),
         "YOUTH" to mapOf(Language.EN to "YOUTH", Language.RU to "ПОДРОСТОК", Language.KO to "청소년", Language.JA to "中高生", Language.ZH to "青少年"),
+        "CLIMATE" to mapOf(Language.EN to "CLIMATE CARD", Language.RU to "КЛИМАТИЧЕСКАЯ", Language.KO to "기후동행카드", Language.JA to "気候同行カード", Language.ZH to "气候同行卡"),
         "HIPASS" to mapOf(Language.EN to "HI-PASS", Language.RU to "HI-PASS", Language.KO to "하이패스", Language.JA to "ハイパス", Language.ZH to "高速通行卡"),
         "UNKNOWN" to mapOf(Language.EN to "CARD", Language.RU to "КАРТА", Language.KO to "카드", Language.JA to "카드", Language.ZH to "卡"),
         "unsupported_card" to mapOf(
@@ -193,6 +201,7 @@ object CardConfig {
      */
     fun getHeaderColor(userType: String): Color {
         return when (userType.uppercase()) {
+            "CLIMATE" -> Color(0xFF6366F1) // Indigo / Purple (Style of Climate Card)
             "HIPASS" -> Color(0xFF1E40AF) // Deep Blue
             "ADULT" -> Color(0xFF0F172A)  // Slate Black
             "CHILD" -> Color(0xFFF59E0B)  // Amber
@@ -254,4 +263,6 @@ object CardConfig {
 
     // Формирование ссылки
     fun getAppLink(packageName: String) = "https://play.google.com/store/apps/details?id=$packageName"
+
+    const val SUPPORT_WHATSAPP = "821096688205" // Номер разработчика
 }

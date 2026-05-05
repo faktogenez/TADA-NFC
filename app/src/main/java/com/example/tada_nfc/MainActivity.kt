@@ -926,6 +926,25 @@ fun SettingsDialog(onDismiss: () -> Unit) {
                 Surface(color = CardConfig.activeAccent.copy(alpha = 0.05f), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Button(onClick = { val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${CardConfig.shareAppMessage}\n${CardConfig.getAppLink(context.packageName)}") }; context.startActivity(Intent.createChooser(intent, "Share")) }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = CardConfig.activeAccent), shape = RoundedCornerShape(12.dp)) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(12.dp)); Text(CardConfig.shareAppLabel, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Кнопка WhatsApp Поддержки
+                        Button(
+                            onClick = {
+                                val url = "https://wa.me/${CardConfig.SUPPORT_WHATSAPP}"
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                context.startActivity(intent)
+                            },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)), // Цвет WhatsApp
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Outlined.Forum, null, tint = Color.White)
+                            Spacer(Modifier.width(12.dp))
+                            Text(CardConfig.translate("contact_dev"), fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                        }
+
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(text = "${CardConfig.translate("version")} 1.0.3", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = CardConfig.activeText.copy(alpha = 0.4f))
                     }
