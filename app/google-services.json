@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1049121436991",
+    "project_id": "tada-nfc",
+    "storage_bucket": "tada-nfc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1049121436991:android:73c0806e1e50ff57cc8f8a",
+        "android_client_info": {
+          "package_name": "com.bodayan.tada"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDB14bKMcFVMUPZE79XaXO7pGRakbKCHzA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1049121436991:android:286427f4a77a32d7cc8f8a",
+        "android_client_info": {
+          "package_name": "com.faktogenez.tada"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDB14bKMcFVMUPZE79XaXO7pGRakbKCHzA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

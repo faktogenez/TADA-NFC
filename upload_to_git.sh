@@ -1,25 +1,18 @@
 #!/bin/bash
 
-# Переходим в директорию проекта
-cd "C:/Users/LEO/OneDrive/Desktop/AndroidStudio/TADA_NFC"
+# 1. Переходим на новую ветку для дизайна и рефакторинга
+BRANCH_NAME="feature/design-refactor-slate"
+git checkout -b $BRANCH_NAME
 
-# Инициализируем локальный репозиторий
-git init
-
-# Настраиваем удаленный репозиторий
-# Удаляем старую привязку, если она есть, и добавляем актуальную
-git remote remove origin 2>/dev/null
-git remote add origin https://github.com/faktogenez/TADA-NFC.git
-
-# Добавляем все файлы проекта (включая код, ресурсы и настройки gradle)
+# 2. Добавляем все изменения
 git add .
 
-# Создаем коммит
-git commit -m "Initial upload: Full TADA-NFC project with new design"
+# 3. Создаем коммит
+git commit -m "Feature: Refactored project into modules and updated UI to Adult Slate style"
 
-# Отправляем файлы в ветку master
-# Флаг -f (force) нужен, чтобы перезаписать пустой репозиторий, если там были файлы (например, README)
-git push -u origin master -f
+# 4. Отправляем в репозиторий
+git push origin $BRANCH_NAME
 
-echo "-------------------------------------------------------"
-echo "Скрипт завершен. Проверьте ваш GitHub: https://github.com/faktogenez/TADA-NFC"
+echo "------------------------------------------------"
+echo "Бекап завершен! Ветка: $BRANCH_NAME"
+echo "------------------------------------------------"
