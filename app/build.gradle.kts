@@ -6,12 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.tada_nfc"
+    namespace = "com.bodayan.tada"
     compileSdk = 36
 
     defaultConfig {
-        // Уникальный ID для Google Play (изменен с com.example)
-        applicationId = "com.faktogenez.tada" 
+        applicationId = "com.bodayan.tada"
         minSdk = 26
         targetSdk = 36
         versionCode = 4
