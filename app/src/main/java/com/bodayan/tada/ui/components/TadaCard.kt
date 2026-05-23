@@ -22,7 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import com.bodayan.tada.config.CardConfig
-import com.bodayan.tada.ui.components.AdItem
+import com.bodayan.tada.models.AdItem
+import com.bodayan.tada.models.AdAction
 import com.bodayan.tada.ui.components.CoupangNativeAd
 import android.content.Intent
 import android.net.Uri
@@ -55,9 +56,11 @@ fun TadaCard(
     cardNumber: String,
     userType: String = "",
     modifier: Modifier = Modifier,
+    ads: List<AdItem> = emptyList(),
     onCloseClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
-    onHistoryClick: () -> Unit = {}
+    onHistoryClick: () -> Unit = {},
+    onAdClick: (AdItem) -> Unit = {}
 ) {
     val currentHeaderColor = CardConfig.getHeaderColor(userType)
 
@@ -264,33 +267,30 @@ fun TadaCard(
                             
                             Spacer(modifier = Modifier.height(24.dp))
                             
-                            val context = LocalContext.current
-                            CoupangNativeAd(
-                                ads = listOf(
-                                    AdItem(
-                                        title = "쎈탁с 닥터피플 멀티비타민 올인원, 1개, 36정",
-                                        discount = "25%",
-                                        price = "14,200원"
-                                    ),
-                                    AdItem(
-                                        title = "Premium Multi-Vitamin Daily Care Gold, 60 Tabs",
-                                        discount = "30%",
-                                        price = "28,500원"
-                                    ),
-                                    AdItem(
-                                        title = "Natural Energy Booster Organic Extract, 500ml",
-                                        discount = "15%",
-                                        price = "9,900원"
-                                    )
+                            val displayAds = if (ads.isNotEmpty()) ads else listOf(
+                                AdItem(
+                                    description = "쎈탁с 닥터피플 멀티비타민 올인원, 1개, 36정",
+                                    discount = "25%",
+                                    price = "14,200원",
+                                    action = AdAction("url", "https://partners.coupang.com/")
                                 ),
-                                onClick = { ad ->
-                                    try {
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://partners.coupang.com/"))
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        Log.e("TadaCard", "Error opening Coupang link", e)
-                                    }
-                                }
+                                AdItem(
+                                    description = "Premium Multi-Vitamin Daily Care Gold, 60 Tabs",
+                                    discount = "30%",
+                                    price = "28,500원",
+                                    action = AdAction("url", "https://partners.coupang.com/")
+                                ),
+                                AdItem(
+                                    description = "Natural Energy Booster Organic Extract, 500ml",
+                                    discount = "15%",
+                                    price = "9,900원",
+                                    action = AdAction("url", "https://partners.coupang.com/")
+                                )
+                            )
+
+                            CoupangNativeAd(
+                                ads = displayAds,
+                                onClick = onAdClick
                             )
                         }
                     }

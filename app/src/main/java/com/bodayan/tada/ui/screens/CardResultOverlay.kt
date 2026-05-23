@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import com.bodayan.tada.config.CardConfig
+import com.bodayan.tada.models.AdItem
 import com.bodayan.tada.ui.components.TadaCard
 
 @Composable
@@ -17,10 +18,12 @@ fun CardResultOverlay(
     targetBalance: String, 
     targetCardNumber: String, 
     targetUserType: String, 
-    targetRotation: Float, 
+    targetRotation: Float,
+    ads: List<AdItem>,
     onDismiss: () -> Unit, 
     onSettingsClick: () -> Unit, 
-    onHistoryClick: () -> Unit
+    onHistoryClick: () -> Unit,
+    onAdClick: (AdItem) -> Unit
 ) {
     var displayedBalance by remember { mutableStateOf(targetBalance) }
     var displayedCardNumber by remember { mutableStateOf(targetCardNumber) }
@@ -60,7 +63,9 @@ fun CardResultOverlay(
                 }, 
             onCloseClick = onDismiss, 
             onSettingsClick = onSettingsClick, 
-            onHistoryClick = onHistoryClick
+            onHistoryClick = onHistoryClick,
+            ads = ads,
+            onAdClick = onAdClick
         )
     }
 }

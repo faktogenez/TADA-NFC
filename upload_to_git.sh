@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# 1. Переходим на новую ветку для синхронизированного пакета
-BRANCH_NAME="feature/full-sync-com-bodayan-tada"
+# 1. Переходим на новую ветку для финального дизайна рекламы
+BRANCH_NAME="feature/ad-design-final"
 git checkout -b $BRANCH_NAME
 
-# 2. Добавляем все изменения
+# 2. Добавляем изменения
 git add .
 
 # 3. Создаем коммит
-git commit -m "Milestone: Full package sync to com.bodayan.tada and fixed Coupang ad clicks"
+git commit -m "UI: Finalized ad carousel design with white borders, compact legal text, and Google Drive auto-sync"
 
-# 4. Отправляем в репозиторий
+# 4. Отправляем
 git push origin $BRANCH_NAME
 
 echo "------------------------------------------------"
-echo "Бекап завершен! Ветка: $BRANCH_NAME"
+echo "Бэкап завершен! Ветка: $BRANCH_NAME"
 echo "------------------------------------------------"

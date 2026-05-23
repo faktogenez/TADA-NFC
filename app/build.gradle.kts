@@ -35,6 +35,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -52,6 +53,7 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
     implementation(libs.material)
+    implementation(libs.coil.compose)
     
     // Firebase
     implementation(platform(libs.firebase.bom))

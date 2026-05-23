@@ -30,6 +30,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.bodayan.tada.config.CardConfig
 import com.bodayan.tada.firebase.FirebaseManager
 import com.bodayan.tada.models.AppState
+import com.bodayan.tada.models.AdItem
 import com.bodayan.tada.nfc.TmoneyReader
 import com.bodayan.tada.providers.TadaWidgetProvider
 import com.bodayan.tada.services.BalanceNotificationService
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
     )
     private var cardRotation by mutableStateOf(0f)
     private var showSettings by mutableStateOf(false)
+    private var remoteAds by mutableStateOf<List<AdItem>>(emptyList())
 
     private var splashPlayer: ExoPlayer? = null
     private var waitingPlayer: ExoPlayer? = null
@@ -69,8 +71,12 @@ class MainActivity : ComponentActivity() {
         try {
             com.google.firebase.FirebaseApp.initializeApp(this)
             FirebaseManager.init()
-            FirebaseManager.fetchAds(this) { 
-                // Ads are updated in manager's cache
+            
+            // Load cached ads immediately
+            remoteAds = FirebaseManager.getCachedAds(this)
+            
+            FirebaseManager.fetchAds(this) { ads ->
+                remoteAds = ads
             }
         } catch (e: Exception) {
             Log.e("MainActivity", "Firebase init error: ${e.message}")
@@ -143,9 +149,11 @@ class MainActivity : ComponentActivity() {
                                 targetCardNumber = state.cardNumber,
                                 targetUserType = state.userType,
                                 targetRotation = cardRotation,
+                                ads = remoteAds,
                                 onDismiss = { finishAffinity() },
                                 onSettingsClick = { showSettings = true },
-                                onHistoryClick = { appState = AppState.History(result = state) }
+                                onHistoryClick = { appState = AppState.History(result = state) },
+                                onAdClick = { ad -> handleAdAction(ad) }
                             )
                             is AppState.History -> HistoryScene(
                                 transactions = state.result.transactions,
@@ -157,9 +165,11 @@ class MainActivity : ComponentActivity() {
                                     targetCardNumber = "**** **** **** ****",
                                     targetUserType = if (state.isRetry) "RETRY" else "UNKNOWN",
                                     targetRotation = cardRotation,
+                                    ads = remoteAds,
                                     onDismiss = { finishAffinity() },
                                     onSettingsClick = { showSettings = true },
-                                    onHistoryClick = {}
+                                    onHistoryClick = {},
+                                    onAdClick = { ad -> handleAdAction(ad) }
                                 )
                             }
                             else -> {}
@@ -227,7 +237,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun processTmoneyTag(tag: Tag) {
-        if (appState !is AppState.CardResult) appState = AppState.Processing
+        if (appState is AppState.Processing || appState is AppState.CardResult) return
+        appState = AppState.Processing
         
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -285,6 +296,38 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun vibrateError() = vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 100, 50, 100), -1))
+
+    fun handleAdAction(ad: AdItem) {
+        val action = ad.action
+        if (action.type == "none" || action.value.isBlank()) return
+
+        Log.d("MainActivity", "Ad clicked: type=${action.type}, value=${action.value}")
+
+        try {
+            when (action.type) {
+                "url", "telegram" -> {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(action.value)).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(intent)
+                }
+                "app" -> {
+                    // Try to launch app, fallback to Play Store
+                    val intent = packageManager.getLaunchIntentForPackage(action.value)
+                    if (intent != null) {
+                        startActivity(intent)
+                    } else {
+                        val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${action.value}")).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(marketIntent)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error handling ad action", e)
+        }
+    }
 
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

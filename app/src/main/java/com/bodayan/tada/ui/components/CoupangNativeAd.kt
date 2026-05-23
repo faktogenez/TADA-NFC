@@ -12,8 +12,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.LocalMall
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -21,27 +19,22 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import coil.compose.AsyncImage
 import com.bodayan.tada.config.CardConfig
+import com.bodayan.tada.models.AdItem
 import kotlinx.coroutines.delay
-import kotlinx.serialization.Serializable
-
-@Serializable
-data class AdItem(
-    val title: String,
-    val discount: String,
-    val price: String,
-    val imageUrl: String = ""
-)
 
 @Composable
 fun CoupangNativeAd(
@@ -49,6 +42,8 @@ fun CoupangNativeAd(
     onClick: (AdItem) -> Unit
 ) {
     val actualPageCount = ads.size
+    if (actualPageCount == 0) return
+
     val infinitePageCount = Int.MAX_VALUE
     val initialPage = infinitePageCount / 2
     val pagerState = rememberPagerState(
@@ -58,8 +53,8 @@ fun CoupangNativeAd(
     
     val isDragged by pagerState.interactionSource.collectIsDraggedAsState()
 
-    LaunchedEffect(isDragged) {
-        if (!isDragged) {
+    LaunchedEffect(isDragged, actualPageCount) {
+        if (!isDragged && actualPageCount > 1) {
             while (true) {
                 delay(CardConfig.adAutoScrollDelay)
                 pagerState.animateScrollToPage(
@@ -118,7 +113,7 @@ fun CoupangNativeAd(
                         horizontalAlignment = CardConfig.adTextAlignment
                     ) {
                         Text(
-                            text = ad.title,
+                            text = ad.description,
                             fontSize = CardConfig.adTitleSize(),
                             lineHeight = 13.sp,
                             color = CardConfig.adTitleColor,
@@ -132,23 +127,32 @@ fun CoupangNativeAd(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = CardConfig.adPriceArrangement
                         ) {
-                            Surface(
-                                color = CardConfig.adDiscountBg,
-                                shape = RoundedCornerShape(CardConfig.adDiscountCorner)
-                            ) {
-                                Text(
-                                    text = ad.discount,
-                                    fontSize = CardConfig.adDiscountSize(),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 0.dp)
-                                )
+                            val isStore = ad.discount.contains("%") || ad.action.type == "app"
+                            val themeColor = when {
+                                isStore -> Color(0xFFC62828)      // Красный (Магазины/Скидки)
+                                ad.action.type == "telegram" -> Color(0xFF0088CC) // Синий (Telegram)
+                                else -> Color(0xFF2E7D32)         // Зеленый (Сайты)
                             }
-                            Spacer(modifier = Modifier.width(6.dp))
+
+                            if (ad.discount.isNotBlank()) {
+                                Surface(
+                                    color = themeColor,
+                                    shape = RoundedCornerShape(CardConfig.adDiscountCorner)
+                                ) {
+                                    Text(
+                                        text = ad.discount,
+                                        fontSize = CardConfig.adDiscountSize(),
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 0.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                            }
                             Text(
                                 text = ad.price,
                                 fontSize = CardConfig.adPriceSize(),
-                                color = CardConfig.adPriceColor,
+                                color = themeColor,
                                 fontWeight = FontWeight.ExtraBold,
                                 maxLines = 1,
                                 softWrap = false
@@ -160,6 +164,7 @@ fun CoupangNativeAd(
                 Surface(
                     color = CardConfig.adProductCardBg,
                     shape = RoundedCornerShape(CardConfig.adImageCorner),
+                    border = BorderStroke(2.dp, Color.White), // Белая обводка 2dp
                     shadowElevation = CardConfig.adImageShadow,
                     modifier = Modifier
                         .size(CardConfig.adImageSize)
@@ -167,23 +172,45 @@ fun CoupangNativeAd(
                         .graphicsLayer { rotationZ = CardConfig.adImageRotation }
                         .zIndex(1f)
                 ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(8.dp)) {
-                        Icon(
-                            imageVector = when(page % 3) {
-                                0 -> Icons.Outlined.ShoppingBag
-                                1 -> Icons.Outlined.AutoAwesome
-                                else -> Icons.Outlined.LocalMall
-                            },
-                            contentDescription = null,
-                            tint = Color.LightGray.copy(alpha = 0.5f),
-                            modifier = Modifier.size(48.dp)
-                        )
+                    Box(contentAlignment = Alignment.Center) {
+                        if (ad.imageUrl.isNotBlank()) {
+                            val finalUrl = remember(ad.imageUrl) {
+                                if (ad.imageUrl.contains("drive.google.com")) {
+                                    val id = ad.imageUrl.substringAfter("/d/").substringBefore("/")
+                                    "https://lh3.googleusercontent.com/u/0/d/$id"
+                                } else ad.imageUrl
+                            }
+                            AsyncImage(
+                                model = finalUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.ShoppingBag,
+                                contentDescription = null,
+                                tint = Color.LightGray.copy(alpha = 0.5f),
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
                     }
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = "이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.",
+            fontSize = 9.sp,
+            lineHeight = 10.sp,
+            color = Color.Gray.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(4.dp))
         
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
