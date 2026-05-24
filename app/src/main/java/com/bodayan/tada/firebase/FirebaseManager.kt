@@ -6,84 +6,62 @@ import com.bodayan.tada.BuildConfig
 import com.google.firebase.Firebase
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.remoteConfig
-import com.google.firebase.remoteconfig.remoteConfigSettings
-import kotlinx.serialization.json.Json
+import com.google.firebase.firestore.FirebaseFirestore
+import com.bodayan.tada.models.AdAction
 import com.bodayan.tada.models.AdItem
 
 object FirebaseManager {
     private const val TAG = "FirebaseManager"
-    private const val ADS_JSON_KEY = "coupang_ads"
-
-    private val json = Json {
-        ignoreUnknownKeys = true
-    }
-
+    
     private var cachedAds: List<AdItem> = emptyList()
 
     fun init() {
-        try {
-            val remoteConfig: FirebaseRemoteConfig = Firebase.remoteConfig
-            val configSettings = remoteConfigSettings {
-                minimumFetchIntervalInSeconds = if (BuildConfig.DEBUG) 0 else 3600
-            }
-            remoteConfig.setConfigSettingsAsync(configSettings)
-            remoteConfig.setDefaultsAsync(mapOf(ADS_JSON_KEY to "[]"))
-            
-            remoteConfig.fetchAndActivate().addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val jsonString = remoteConfig.getString(ADS_JSON_KEY)
-                    updateCachedAds(jsonString)
-                    Log.d(TAG, "Remote Config fetch successful")
-                } else {
-                    Log.e(TAG, "Remote Config fetch failed")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Firebase init error: ${e.message}")
-        }
-    }
-
-    private fun updateCachedAds(jsonString: String) {
-        cachedAds = try {
-            if (jsonString.isBlank()) {
-                emptyList()
-            } else {
-                json.decodeFromString<List<AdItem>>(jsonString)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "JSON parsing error: ${e.message}")
-            emptyList()
-        }
+        // Firestore не требует специальной инициализации настроек как Remote Config
     }
 
     fun fetchAds(context: Context, onResult: (List<AdItem>) -> Unit) {
         try {
-            val remoteConfig: FirebaseRemoteConfig = Firebase.remoteConfig
-            remoteConfig.fetchAndActivate().addOnCompleteListener { task ->
-                val jsonString = if (task.isSuccessful) {
-                    remoteConfig.getString(ADS_JSON_KEY)
-                } else {
-                    remoteConfig.getString(ADS_JSON_KEY) // Use current (possibly default or previously fetched) values
+            val db = FirebaseFirestore.getInstance()
+            db.collection("ads").document("coupang")
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document.exists()) {
+                        val products = document.get("products") as? List<Map<String, Any>>
+                        if (products != null) {
+                            val productsList = products.map { map ->
+                                val actionMap = map["action"] as? Map<String, String>
+                                AdItem(
+                                    id = map["id"] as? String ?: "",
+                                    description = map["description"] as? String ?: "",
+                                    discount = map["discount"] as? String ?: "",
+                                    price = map["price"] as? String ?: "",
+                                    imageUrl = map["imageUrl"] as? String ?: "",
+                                    action = AdAction(
+                                        type = actionMap?.get("type") ?: "url",
+                                        value = actionMap?.get("value") ?: ""
+                                    )
+                                )
+                            }
+                            cachedAds = productsList
+                            onResult(cachedAds)
+                        } else {
+                            onResult(emptyList())
+                        }
+                    } else {
+                        onResult(emptyList())
+                    }
                 }
-                updateCachedAds(jsonString)
-                onResult(cachedAds)
-            }
+                .addOnFailureListener { e ->
+                    Log.e(TAG, "Firestore fetch error: ${e.message}")
+                    onResult(emptyList())
+                }
         } catch (e: Exception) {
-            Log.e(TAG, "fetchAds error: ${e.message}")
+            Log.e(TAG, "fetchAds exception: ${e.message}")
             onResult(emptyList())
         }
     }
 
     fun getCachedAds(context: Context): List<AdItem> {
-        return try {
-            if (cachedAds.isEmpty()) {
-                val jsonString = Firebase.remoteConfig.getString(ADS_JSON_KEY)
-                updateCachedAds(jsonString)
-            }
-            cachedAds
-        } catch (e: Exception) {
-            Log.e(TAG, "getCachedAds error: ${e.message}")
-            emptyList()
-        }
+        return cachedAds
     }
 }

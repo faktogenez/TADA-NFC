@@ -265,33 +265,13 @@ fun TadaCard(
                                 }
                             }
                             
-                            Spacer(modifier = Modifier.height(24.dp))
-                            
-                            val displayAds = if (ads.isNotEmpty()) ads else listOf(
-                                AdItem(
-                                    description = "쎈탁с 닥터피플 멀티비타민 올인원, 1개, 36정",
-                                    discount = "25%",
-                                    price = "14,200원",
-                                    action = AdAction("url", "https://partners.coupang.com/")
-                                ),
-                                AdItem(
-                                    description = "Premium Multi-Vitamin Daily Care Gold, 60 Tabs",
-                                    discount = "30%",
-                                    price = "28,500원",
-                                    action = AdAction("url", "https://partners.coupang.com/")
-                                ),
-                                AdItem(
-                                    description = "Natural Energy Booster Organic Extract, 500ml",
-                                    discount = "15%",
-                                    price = "9,900원",
-                                    action = AdAction("url", "https://partners.coupang.com/")
+                            if (ads.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(24.dp))
+                                CoupangNativeAd(
+                                    ads = ads,
+                                    onClick = onAdClick
                                 )
-                            )
-
-                            CoupangNativeAd(
-                                ads = displayAds,
-                                onClick = onAdClick
-                            )
+                            }
                         }
                     }
                 }

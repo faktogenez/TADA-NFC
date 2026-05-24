@@ -59,6 +59,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.config)
     implementation(libs.firebase.analytics)
+    implementation("com.google.firebase:firebase-firestore-ktx")
     
     // Serialization
     implementation(libs.kotlinx.serialization.json)

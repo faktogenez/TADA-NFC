@@ -1,5 +1,4 @@
 package com.bodayan.tada
-
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -258,6 +257,13 @@ class MainActivity : ComponentActivity() {
 
                         vibrateConfirmation()
                         cardRotation += 180f
+                        
+                        // Рандомизация и ротация рекламы (берем 5 случайных)
+                        val allAds = FirebaseManager.getCachedAds(this@MainActivity)
+                        if (allAds.isNotEmpty()) {
+                            remoteAds = allAds.shuffled().take(5)
+                        }
+
                         appState = AppState.CardResult(result.balance, result.number, result.userType, result.transactions)
                         
                         val prefs = getSharedPreferences("tada_prefs", Context.MODE_PRIVATE)
@@ -301,31 +307,61 @@ class MainActivity : ComponentActivity() {
         val action = ad.action
         if (action.type == "none" || action.value.isBlank()) return
 
-        Log.d("MainActivity", "Ad clicked: type=${action.type}, value=${action.value}")
-
         try {
-            when (action.type) {
-                "url", "telegram" -> {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(action.value)).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    startActivity(intent)
+            val value = action.value
+            val uri = Uri.parse(value)
+
+            // 1. Тип "app" (запуск по ID пакета)
+            if (action.type == "app") {
+                val launchIntent = packageManager.getLaunchIntentForPackage(value)
+                if (launchIntent != null) {
+                    startActivity(launchIntent)
+                } else {
+                    val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$value"))
+                    marketIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(marketIntent)
                 }
-                "app" -> {
-                    // Try to launch app, fallback to Play Store
-                    val intent = packageManager.getLaunchIntentForPackage(action.value)
-                    if (intent != null) {
-                        startActivity(intent)
-                    } else {
-                        val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${action.value}")).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        startActivity(marketIntent)
-                    }
-                }
+                return
             }
+
+            // 2. Специальная обработка Coupang (форсируем Deep Link)
+            if (value.contains("coupang.com")) {
+                try {
+                    packageManager.getPackageInfo("com.coupang.mobile", 0)
+                    val deepLink = "coupang://v1/dispatch?url=" + Uri.encode(value)
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink))
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    return
+                } catch (e: Exception) { /* Не установлено */ }
+            }
+
+            // 3. Прямой запуск для других известных приложений
+            val targetPackage = when {
+                value.contains("aliexpress.com") -> "com.alibaba.aliexpress"
+                value.contains("t.me") -> "org.telegram.messenger"
+                value.contains("youtube.com") || value.contains("youtu.be") -> "com.google.android.youtube"
+                else -> null
+            }
+
+            if (targetPackage != null) {
+                try {
+                    packageManager.getPackageInfo(targetPackage, 0)
+                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                    intent.setPackage(targetPackage)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    return
+                } catch (e: Exception) { }
+            }
+
+            // 4. Фоллбек на браузер
+            val browserIntent = Intent(Intent.ACTION_VIEW, uri)
+            browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(browserIntent)
+
         } catch (e: Exception) {
-            Log.e("MainActivity", "Error handling ad action", e)
+            Log.e("MainActivity", "Error opening link", e)
         }
     }
 
