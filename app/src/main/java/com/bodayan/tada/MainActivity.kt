@@ -236,8 +236,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun processTmoneyTag(tag: Tag) {
-        if (appState is AppState.Processing || appState is AppState.CardResult) return
-        appState = AppState.Processing
+        if (appState is AppState.Processing) return
+        
+        // Позволяем пересканирование, если мы уже на экране результата или ошибки
+        val isFirstRead = appState !is AppState.CardResult && appState !is AppState.Error && appState !is AppState.History
+        if (isFirstRead) appState = AppState.Processing
         
         lifecycleScope.launch(Dispatchers.IO) {
             try {
